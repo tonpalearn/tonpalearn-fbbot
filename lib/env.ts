@@ -39,10 +39,10 @@ export const env = {
     anonKey: () => required("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
     serviceRoleKey: () => required("SUPABASE_SERVICE_ROLE_KEY"),
   },
-  anthropic: {
-    apiKey: () => required("ANTHROPIC_API_KEY"),
-    model: () => optional("ANTHROPIC_MODEL", "claude-sonnet-5"),
-    maxTokens: () => num("ANTHROPIC_MAX_TOKENS", 700),
+  gemini: {
+    apiKey: () => required("GEMINI_API_KEY"),
+    model: () => optional("GEMINI_MODEL", "gemini-3.5-flash"),
+    maxTokens: () => num("GEMINI_MAX_TOKENS", 700),
   },
   brain: {
     similarityThreshold: () => num("KB_SIMILARITY_THRESHOLD", 0.35),
@@ -80,7 +80,7 @@ export function checkEnv(): { ok: boolean; missing: string[] } {
     "NEXT_PUBLIC_SUPABASE_URL",
     "NEXT_PUBLIC_SUPABASE_ANON_KEY",
     "SUPABASE_SERVICE_ROLE_KEY",
-    "ANTHROPIC_API_KEY",
+    "GEMINI_API_KEY",
     "ADMIN_PASSCODE",
     "ADMIN_SESSION_SECRET",
   ];

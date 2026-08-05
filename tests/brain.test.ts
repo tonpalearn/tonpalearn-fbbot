@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-process.env.ANTHROPIC_API_KEY = "test";
+process.env.GEMINI_API_KEY = "test";
 process.env.KB_SIMILARITY_THRESHOLD = "0.35";
 process.env.DAILY_AI_CALL_CAP = "500";
 

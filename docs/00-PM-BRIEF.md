@@ -12,10 +12,10 @@
 | หัวข้อ | ที่เคาะ |
 |---|---|
 | เพจตั้งต้น | TONPALEARN (สอน AI) |
-| สมองบอต | **Hybrid** — กติกา (คำสำคัญ + ปุ่ม) มาก่อน → ถ้าไม่ตรง ใช้ AI (Claude) + ฐานความรู้ (RAG) |
+| สมองบอต | **Hybrid** — กติกา (คำสำคัญ + ปุ่ม) มาก่อน → ถ้าไม่ตรง ใช้ AI (Gemini) + ฐานความรู้ (RAG) |
 | ขอบเขต MVP | ① ตอบแชท + FAQ/ฐานความรู้ ② เก็บ Lead + ส่งต่อ ③ Human Handoff (โอนหาคน) |
 | สแตก | Next.js (App Router) + Supabase (Postgres + pgvector) + Vercel |
-| โมเดล | Claude (ตระกูล Claude 5) ผ่าน Anthropic API |
+| โมเดล | **Gemini `gemini-3.5-flash`** ผ่าน Google Gen AI SDK (`@google/genai`)<br>เปลี่ยนจาก Claude เมื่อ 6 ส.ค. 2569 ตามที่ต้นเคาะ |
 | ภาษา | ไทยเป็นหลัก, รองรับอังกฤษแบบตอบได้ |
 
 ## 3. นอกขอบเขต MVP (Non-Goals) พร้อมเหตุผล

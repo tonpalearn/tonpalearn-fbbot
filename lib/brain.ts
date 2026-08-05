@@ -193,7 +193,7 @@ export async function handleIncoming(msg: IncomingMessage): Promise<BotAction> {
       await store.logUsage({
         pageId: msg.pageId,
         conversationId: convo.id,
-        model: env.anthropic.model(),
+        model: env.gemini.model(),
         inputTokens: ai.inputTokens,
         outputTokens: ai.outputTokens,
         latencyMs: ai.latencyMs,

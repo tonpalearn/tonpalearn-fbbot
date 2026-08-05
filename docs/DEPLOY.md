@@ -50,11 +50,13 @@
    ```
    FB_APP_SECRET, FB_VERIFY_TOKEN, FB_PAGE_ID, FB_PAGE_ACCESS_TOKEN, GRAPH_API_VERSION,
    NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
-   ANTHROPIC_API_KEY, ANTHROPIC_MODEL,
+   GEMINI_API_KEY, GEMINI_MODEL,
    ADMIN_PASSCODE, ADMIN_SESSION_SECRET, NEXT_PUBLIC_APP_URL
    ```
    - `ADMIN_SESSION_SECRET` สร้างด้วยคำสั่ง: `openssl rand -hex 32`
-   - `ADMIN_PASSCODE` ตั้งเองให้ยาวอย่างน้อย 12 ตัว
+   - `ADMIN_PASSCODE` ตั้งเองให้ยาว **อย่างน้อย 16 ตัว** (โค้ดบังคับไว้ สั้นกว่านี้ระบบจะไม่ยอมทำงาน)
+   - `GEMINI_API_KEY` เอาจาก **aistudio.google.com/apikey** → Get API key
+   - ติ๊กให้ครบทั้ง **Production · Preview · Development** ทั้ง 3 ช่อง
 4. กด **Deploy** → ได้ URL เช่น `https://fb-chatbot-xxx.vercel.app`
 5. เปิด `https://<โดเมนของคุณ>/api/health` → ต้องขึ้น `"status": "พร้อมใช้งาน"`
    ถ้าขึ้น `ยังตั้งค่าไม่ครบ` จะบอกชื่อตัวแปรที่ขาดให้เลย
