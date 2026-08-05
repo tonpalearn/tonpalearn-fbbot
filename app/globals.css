@@ -1,0 +1,127 @@
+@import "tailwindcss";
+
+/* ── ระบบสีของงานนี้ ────────────────────────────────────────────────────
+   โทน "ตั๋วทอง บนกระดาษเงียบ" — พื้นสงบ ให้จุดที่ต้องกดเป็นแสงเดียวของหน้า
+   รองรับทั้งโหมดสว่าง/มืด ตามเครื่อง และสลับเองได้ด้วย data-theme
+   ─────────────────────────────────────────────────────────────────────── */
+@theme {
+  --font-sans: var(--font-anuphan), ui-sans-serif, system-ui, sans-serif;
+
+  --color-ink: #16181d;
+  --color-ink-soft: #4a4f5a;
+  --color-paper: #f7f6f3;
+  --color-card: #ffffff;
+  --color-line: #e3e1db;
+  --color-gold: #b8863b;
+  --color-gold-soft: #f3e7d0;
+  --color-ok: #2f7d5d;
+  --color-warn: #b4691a;
+  --color-danger: #b3382f;
+}
+
+:root {
+  --bg: #f7f6f3;
+  --card: #ffffff;
+  --text: #16181d;
+  --text-soft: #4a4f5a;
+  --line: #e3e1db;
+  --accent: #b8863b;
+  --accent-weak: #f3e7d0;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14151a;
+    --card: #1c1e25;
+    --text: #f0eee9;
+    --text-soft: #a8adb8;
+    --line: #2e313a;
+    --accent: #d8a75a;
+    --accent-weak: #3a2f1c;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="light"] {
+  --bg: #f7f6f3;
+  --card: #ffffff;
+  --text: #16181d;
+  --text-soft: #4a4f5a;
+  --line: #e3e1db;
+  --accent: #b8863b;
+  --accent-weak: #f3e7d0;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #14151a;
+  --card: #1c1e25;
+  --text: #f0eee9;
+  --text-soft: #a8adb8;
+  --line: #2e313a;
+  --accent: #d8a75a;
+  --accent-weak: #3a2f1c;
+  color-scheme: dark;
+}
+
+/* ตัวอักษรไทยต้องใหญ่และหายใจกว่าค่าเริ่มต้นของ Tailwind ไม่งั้นอ่านยาก */
+html {
+  font-size: 17.5px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.8;
+  -webkit-font-smoothing: antialiased;
+}
+
+.soft {
+  color: var(--text-soft);
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.btn-gold {
+  background: var(--accent);
+  color: #1a1408;
+  border-radius: 10px;
+  font-weight: 600;
+  padding: 0.55rem 1.1rem;
+  transition: filter 0.15s ease;
+}
+.btn-gold:hover {
+  filter: brightness(1.07);
+}
+.btn-quiet {
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 0.5rem 1rem;
+  background: transparent;
+}
+.btn-quiet:hover {
+  background: var(--accent-weak);
+}
+
+input,
+textarea,
+select {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.55rem 0.8rem;
+  color: var(--text);
+  width: 100%;
+}
+input:focus,
+textarea:focus,
+select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}

@@ -1,0 +1,1777 @@
+<!doctype html>
+<html lang="th" data-theme-init>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PRD — ผู้ช่วยตอบแชทเพจ TONPALEARN</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<script>
+  /* ตั้งธีมก่อนวาดหน้า กันจอกระพริบ */
+  (function () {
+    try {
+      var t = localStorage.getItem("prd_theme");
+      if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+    } catch (e) {}
+  })();
+</script>
+<style>
+/* ══ ระบบสี — "ตั๋วทอง บนกระดาษเงียบ" (ตรงกับ app/globals.css) ══ */
+:root{
+  --bg:#f7f6f3; --card:#ffffff; --text:#16181d; --text-soft:#4a4f5a;
+  --line:#e3e1db; --accent:#b8863b; --accent-weak:#f3e7d0;
+  --ok:#2f7d5d; --warn:#b4691a; --danger:#b3382f; --info:#2f5fb3; --violet:#6b5b95;
+  --mock-bg:#f2f1ed; --chip:#f6e2cc; --chip-text:#8a4d0d;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#14151a; --card:#1c1e25; --text:#f0eee9; --text-soft:#a8adb8;
+    --line:#2e313a; --accent:#d8a75a; --accent-weak:#3a2f1c;
+    --ok:#63b58e; --warn:#e0a256; --danger:#e2776c; --info:#7ba2e8; --violet:#a695d1;
+    --mock-bg:#101116; --chip:#4a3a1c; --chip-text:#f0cf9a;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f7f6f3; --card:#ffffff; --text:#16181d; --text-soft:#4a4f5a;
+  --line:#e3e1db; --accent:#b8863b; --accent-weak:#f3e7d0;
+  --ok:#2f7d5d; --warn:#b4691a; --danger:#b3382f; --info:#2f5fb3; --violet:#6b5b95;
+  --mock-bg:#f2f1ed; --chip:#f6e2cc; --chip-text:#8a4d0d;
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --bg:#14151a; --card:#1c1e25; --text:#f0eee9; --text-soft:#a8adb8;
+  --line:#2e313a; --accent:#d8a75a; --accent-weak:#3a2f1c;
+  --ok:#63b58e; --warn:#e0a256; --danger:#e2776c; --info:#7ba2e8; --violet:#a695d1;
+  --mock-bg:#101116; --chip:#4a3a1c; --chip-text:#f0cf9a;
+  color-scheme:dark;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{font-size:17.5px; scroll-behavior:smooth; scroll-padding-top:1.5rem; -webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg); color:var(--text); line-height:1.8;
+  font-family:"Anuphan", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-weight:400; -webkit-font-smoothing:antialiased; overflow-x:hidden;
+}
+h1,h2,h3,h4{line-height:1.45; margin:0}
+p{margin:0 0 .9rem}
+a{color:var(--accent)}
+code{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.86em;
+  background:var(--accent-weak); padding:.1em .38em; border-radius:5px;
+}
+.soft{color:var(--text-soft)}
+strong{font-weight:600}
+
+/* ══ โครงหน้า ══ */
+.shell{max-width:1180px; margin:0 auto; padding:0 1.1rem 5rem}
+.layout{display:block}
+@media (min-width:1000px){
+  .layout{display:grid; grid-template-columns:236px minmax(0,1fr); gap:2.6rem; align-items:start}
+}
+
+/* หัวเอกสาร */
+.masthead{
+  border-bottom:1px solid var(--line); padding:2.2rem 0 1.6rem; margin-bottom:1.8rem;
+}
+.eyebrow{
+  font-size:.8rem; letter-spacing:.22em; text-transform:uppercase; color:var(--text-soft);
+  margin:0 0 .35rem;
+}
+.masthead h1{font-size:2rem; font-weight:700; letter-spacing:-.01em}
+@media (min-width:700px){ .masthead h1{font-size:2.5rem} }
+.masthead .lede{margin-top:.7rem; max-width:60ch; color:var(--text-soft)}
+.meta-row{display:flex; flex-wrap:wrap; gap:.5rem; margin-top:1.1rem}
+.pill{
+  border:1px solid var(--line); border-radius:999px; padding:.18rem .8rem;
+  font-size:.85rem; color:var(--text-soft); background:var(--card);
+}
+.pill.gold{border-color:var(--accent); color:var(--accent); background:var(--accent-weak)}
+
+/* ปุ่มสลับธีม */
+.theme-btn{
+  position:fixed; top:.8rem; right:.8rem; z-index:60;
+  border:1px solid var(--line); background:var(--card); color:var(--text);
+  border-radius:999px; padding:.4rem .85rem; font:inherit; font-size:.85rem;
+  cursor:pointer; box-shadow:0 2px 12px rgba(0,0,0,.09);
+}
+.theme-btn:hover{background:var(--accent-weak)}
+/* จอเล็ก: สารบัญเกาะอยู่บนสุด ปุ่มธีมจึงต้องหลบลงมุมล่าง ไม่งั้นทับกัน
+   และต้องเว้นที่ท้ายหน้าไว้ ไม่งั้นปุ่มจะบังบรรทัดสุดท้ายค้างอยู่ตลอด */
+@media (max-width:999px){
+  .theme-btn{top:auto; bottom:1rem; right:1rem}
+  body{padding-bottom:4.5rem}
+}
+
+/* สารบัญ */
+.toc{margin-bottom:1.6rem}
+.toc-title{
+  font-size:.78rem; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--text-soft); margin-bottom:.5rem; display:none;
+}
+.toc nav{display:flex; gap:.4rem; overflow-x:auto; padding-bottom:.4rem; -webkit-overflow-scrolling:touch}
+.toc a{
+  white-space:nowrap; text-decoration:none; color:var(--text-soft);
+  border:1px solid var(--line); background:var(--card);
+  border-radius:999px; padding:.25rem .8rem; font-size:.88rem; flex:0 0 auto;
+}
+.toc a:hover{background:var(--accent-weak); color:var(--text)}
+.toc a.on{border-color:var(--accent); color:var(--accent); background:var(--accent-weak)}
+@media (min-width:1000px){
+  .toc{position:sticky; top:1.2rem; margin-bottom:0}
+  .toc-title{display:block}
+  .toc nav{flex-direction:column; overflow:visible; gap:.15rem}
+  .toc a{border:0; background:transparent; border-left:2px solid var(--line); border-radius:0; padding:.32rem .8rem}
+  .toc a.sub{padding-left:1.5rem; font-size:.82rem}
+  .toc a.on{border-left-color:var(--accent); background:var(--accent-weak)}
+}
+.toc-sticky-mobile{
+  position:sticky; top:0; z-index:50; background:var(--bg);
+  padding-top:.6rem; border-bottom:1px solid var(--line);
+}
+@media (min-width:1000px){ .toc-sticky-mobile{position:sticky; border-bottom:0; padding-top:0} }
+
+/* ══ ส่วนและการ์ด ══ */
+section.band{padding:2.4rem 0 .6rem; border-top:1px solid var(--line)}
+section.band:first-of-type{border-top:0}
+.sec-no{
+  display:inline-block; font-size:.78rem; letter-spacing:.2em; text-transform:uppercase;
+  color:var(--accent); font-weight:600; margin-bottom:.3rem;
+}
+h2.sec{font-size:1.55rem; font-weight:700; margin-bottom:.4rem}
+h3{font-size:1.18rem; font-weight:600; margin:2rem 0 .7rem}
+h4{font-size:1rem; font-weight:600; margin:1.3rem 0 .4rem}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:1.15rem 1.25rem}
+.grid{display:grid; gap:1rem}
+@media (min-width:720px){
+  .grid.g2{grid-template-columns:1fr 1fr}
+  .grid.g3{grid-template-columns:repeat(3,1fr)}
+}
+.callout{
+  border:1px solid var(--accent); background:var(--accent-weak);
+  border-radius:14px; padding:1.05rem 1.2rem; margin:1.1rem 0;
+}
+.callout.warn{border-color:var(--warn)}
+.callout.warn .h{color:var(--warn)}
+.callout .h{font-weight:600; margin-bottom:.2rem}
+ul,ol{margin:0 0 1rem; padding-left:1.3rem}
+li{margin-bottom:.35rem}
+ul.clean{list-style:none; padding-left:0}
+ul.clean li{padding-left:1.5rem; position:relative}
+ul.clean li::before{content:"—"; position:absolute; left:0; color:var(--accent)}
+ul.no li{padding-left:1.5rem; position:relative; list-style:none}
+ul.no{padding-left:0}
+ul.no li::before{content:"✕"; position:absolute; left:0; color:var(--danger); font-size:.85em}
+
+/* ตาราง */
+.table-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid var(--line); border-radius:14px; background:var(--card); margin:0 0 1.2rem}
+table{border-collapse:collapse; width:100%; min-width:520px; font-size:.95rem}
+th,td{text-align:left; padding:.7rem .85rem; border-bottom:1px solid var(--line); vertical-align:top; line-height:1.65}
+th{font-weight:600; background:var(--accent-weak); white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td.nowrap,th.nowrap{white-space:nowrap}
+.tag{display:inline-block; border-radius:999px; padding:.05rem .55rem; font-size:.8rem; font-weight:500; white-space:nowrap}
+.tag.p0{background:var(--danger); color:#fff}
+.tag.p1{background:var(--warn); color:#fff}
+.tag.p2{background:var(--line); color:var(--text-soft)}
+.tag.ok{background:var(--ok); color:#fff}
+.tag.gold{background:var(--accent); color:#1a1408}
+.tag.q{background:var(--chip); color:var(--chip-text)}
+
+/* ══ ไดอะแกรม ══ */
+.diagram{margin:1rem 0 1.6rem}
+.diagram .frame{
+  border:1px solid var(--line); border-radius:14px; background:var(--card);
+  padding:1rem .8rem; overflow-x:auto; -webkit-overflow-scrolling:touch;
+}
+/* ห้ามใช้ display:none ก่อนวาด — ตัววาดต้องวัดขนาดตัวอักษรจริง ไม่งั้นไดอะแกรมเพี้ยน
+   จึงซ่อนด้วย opacity ซึ่งยังคงพื้นที่ให้วัดได้ */
+.mermaid{opacity:0; min-width:min-content; margin:0; font-size:.78rem; line-height:1.5; white-space:pre; color:var(--text-soft)}
+.diagram.ready .mermaid{opacity:1}
+.diagram.failed .mermaid{display:none}
+.diagram.ready .fallback-note{display:none}
+.fallback-note{
+  display:none; color:var(--warn); font-size:.9rem; padding:.4rem .2rem;
+}
+.diagram.failed .fallback-note{display:block}
+details.txt{margin-top:.55rem; border:1px solid var(--line); border-radius:10px; background:var(--card)}
+details.txt summary{cursor:pointer; padding:.45rem .85rem; font-size:.9rem; color:var(--text-soft)}
+details.txt summary:hover{color:var(--text)}
+details.txt pre{
+  margin:0; padding:.2rem .85rem 1rem; overflow-x:auto; font-size:.8rem; line-height:1.6;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--text-soft);
+}
+.readnote{color:var(--text-soft); font-size:.95rem; max-width:70ch}
+
+/* ══ MOCK SCREEN ══ */
+.mock{margin:0 0 2.2rem}
+.mockwin{
+  border:1px solid var(--line); border-radius:14px; overflow:hidden;
+  background:var(--card); box-shadow:0 8px 30px rgba(0,0,0,.07);
+}
+.chrome{
+  display:flex; align-items:center; gap:.5rem; padding:.45rem .7rem;
+  background:var(--mock-bg); border-bottom:1px solid var(--line);
+}
+.dots{display:flex; gap:.28rem; flex:0 0 auto}
+.dots i{width:9px; height:9px; border-radius:50%; background:var(--line); display:block}
+.url{
+  flex:1; min-width:0; background:var(--card); border:1px solid var(--line); border-radius:999px;
+  font-size:.72rem; color:var(--text-soft); padding:.12rem .7rem;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.sample{
+  flex:0 0 auto; font-size:.68rem; letter-spacing:.06em; color:var(--chip-text);
+  background:var(--chip); border-radius:999px; padding:.05rem .5rem;
+}
+.screen{font-size:.86rem; line-height:1.7; background:var(--bg)}
+.mock figcaption{
+  margin-top:.7rem; font-size:.95rem; color:var(--text-soft); max-width:74ch;
+}
+.mock figcaption b{color:var(--text); font-weight:600}
+
+/* โครงแอดมินจำลอง */
+.adm{display:flex; min-height:220px}
+.adm-side{
+  flex:0 0 145px; background:var(--card); border-right:1px solid var(--line); padding:.75rem .6rem;
+}
+.adm-main{flex:1; min-width:0; padding:.95rem 1rem 1.2rem}
+@media (max-width:660px){
+  .adm{display:block}
+  .adm-side{border-right:0; border-bottom:1px solid var(--line); display:flex; gap:.3rem; overflow-x:auto; align-items:center}
+  .adm-brand{flex:0 0 auto; margin:0 .5rem 0 0 !important}
+  .adm-nav{display:flex !important; flex-direction:row !important; gap:.25rem; flex:1}
+  .adm-nav b, .adm-nav span{white-space:nowrap; font-size:.76rem !important; padding:.15rem .5rem !important}
+  .adm-logout{display:none !important}
+}
+.adm-brand{margin-bottom:.7rem}
+.adm-brand .k{font-size:.62rem; letter-spacing:.18em; color:var(--text-soft)}
+.adm-brand .n{font-weight:600; font-size:.85rem}
+.adm-nav{display:flex; flex-direction:column; gap:.05rem}
+.adm-nav span,.adm-nav b{
+  display:block; padding:.24rem .5rem; border-radius:8px; font-size:.8rem;
+  color:var(--text-soft); font-weight:400;
+}
+.adm-nav b{background:var(--accent-weak); color:var(--text); font-weight:600}
+.adm-logout{
+  margin-top:.9rem; border:1px solid var(--line); border-radius:8px; text-align:center;
+  font-size:.75rem; color:var(--text-soft); padding:.2rem;
+}
+.adm-h1{font-size:1.1rem; font-weight:600; margin-bottom:.15rem}
+.adm-sub{color:var(--text-soft); font-size:.8rem; margin-bottom:.8rem}
+
+/* ชิ้นส่วนภายในหน้าจอจำลอง */
+.mcard{background:var(--card); border:1px solid var(--line); border-radius:11px; padding:.65rem .8rem}
+.mgrid{display:grid; gap:.55rem}
+.mgrid.c4{grid-template-columns:repeat(2,1fr)}
+@media (min-width:760px){ .mgrid.c4{grid-template-columns:repeat(4,1fr)} }
+.mgrid.c2{grid-template-columns:1fr}
+@media (min-width:620px){ .mgrid.c2{grid-template-columns:1fr 1fr} }
+.metric .l{font-size:.74rem; color:var(--text-soft)}
+.metric .v{font-size:1.35rem; font-weight:600; line-height:1.3}
+.metric .v.warn{color:var(--warn)}
+.btn{
+  display:inline-block; border:1px solid var(--line); border-radius:8px;
+  padding:.15rem .6rem; font-size:.76rem; color:var(--text); background:transparent;
+}
+.btn.gold{background:var(--accent); color:#1a1408; border-color:var(--accent); font-weight:600}
+.row{display:flex; flex-wrap:wrap; align-items:center; gap:.4rem}
+.row.tight{gap:.3rem}
+.push{margin-left:auto}
+.badge{
+  border-radius:999px; padding:.02rem .55rem; font-size:.72rem; font-weight:500;
+  background:var(--accent-weak); display:inline-block; white-space:nowrap;
+}
+.dot-unread{color:var(--accent); font-size:.74rem; white-space:nowrap}
+.tiny{font-size:.72rem; color:var(--text-soft)}
+.finput{
+  border:1px solid var(--line); border-radius:8px; background:var(--card);
+  padding:.28rem .6rem; font-size:.78rem; color:var(--text-soft); min-height:1.9rem;
+}
+.finput.filled{color:var(--text)}
+.flabel{font-size:.76rem; font-weight:600; display:block; margin-bottom:.15rem}
+.fhint{font-size:.72rem; color:var(--text-soft); display:block; margin-bottom:.2rem}
+.stack{display:flex; flex-direction:column; gap:.55rem}
+.mixbar{display:flex; height:9px; border-radius:999px; overflow:hidden; background:var(--line)}
+.mixlist{display:grid; gap:.1rem; margin-top:.55rem; font-size:.76rem}
+@media (min-width:620px){ .mixlist{grid-template-columns:1fr 1fr; column-gap:1.4rem} }
+.mixlist li{display:flex; align-items:center; gap:.4rem; list-style:none}
+.sw{width:9px; height:9px; border-radius:2px; flex:0 0 auto}
+.placeholder{
+  background:var(--chip); color:var(--chip-text); border-radius:5px;
+  padding:0 .3rem; font-size:.95em; border-bottom:1px dashed currentColor;
+}
+
+/* ฟองแชทในหน้าแอดมิน */
+.bubbles{display:flex; flex-direction:column; gap:.45rem}
+.bwrap{display:flex}
+.bwrap.out{justify-content:flex-end}
+.bub{
+  max-width:85%; border:1px solid var(--line); border-radius:14px;
+  padding:.35rem .7rem; background:var(--bg);
+}
+.bwrap.out .bub{background:var(--accent-weak)}
+.bmeta{display:flex; gap:.5rem; align-items:center; font-size:.7rem; color:var(--text-soft); margin-top:.15rem}
+.bmeta .push{margin-left:auto}
+
+/* โทรศัพท์ Messenger */
+.phone{
+  max-width:330px; margin:0 auto; border:1px solid var(--line); border-radius:26px;
+  overflow:hidden; background:#fff; box-shadow:0 10px 34px rgba(0,0,0,.13);
+}
+:root[data-theme="dark"] .phone{background:#242526; border-color:#3a3b3c}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .phone{background:#242526; border-color:#3a3b3c} }
+.ph-top{
+  display:flex; align-items:center; gap:.5rem; padding:.55rem .8rem;
+  border-bottom:1px solid rgba(128,128,128,.25); font-size:.8rem;
+}
+.ph-avatar{
+  width:26px; height:26px; border-radius:50%; background:var(--accent); color:#1a1408;
+  display:flex; align-items:center; justify-content:center; font-size:.62rem; font-weight:700; flex:0 0 auto;
+}
+.ph-name{font-weight:600; color:#111}
+.ph-sub{font-size:.68rem; color:#65676b}
+:root[data-theme="dark"] .ph-name{color:#e4e6eb}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .ph-name{color:#e4e6eb} }
+.ph-body{padding:.7rem .7rem 1rem; display:flex; flex-direction:column; gap:.3rem}
+.mb{max-width:78%; padding:.35rem .7rem; border-radius:16px; font-size:.8rem; line-height:1.6; white-space:pre-line}
+.mb.them{background:#eff1f3; color:#111; align-self:flex-start; border-bottom-left-radius:5px}
+.mb.me{background:#0084ff; color:#fff; align-self:flex-end; border-bottom-right-radius:5px}
+:root[data-theme="dark"] .mb.them{background:#3a3b3c; color:#e4e6eb}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .mb.them{background:#3a3b3c; color:#e4e6eb} }
+.qr{display:flex; flex-wrap:wrap; gap:.28rem; margin:.15rem 0 .3rem}
+.qr span{
+  border:1px solid #0084ff; color:#0084ff; background:transparent;
+  border-radius:999px; padding:.08rem .6rem; font-size:.72rem; white-space:nowrap;
+}
+.ph-time{text-align:center; font-size:.66rem; color:#8a8d91; margin:.3rem 0}
+.ph-input{
+  display:flex; align-items:center; gap:.4rem; padding:.5rem .8rem;
+  border-top:1px solid rgba(128,128,128,.25); font-size:.75rem; color:#8a8d91;
+}
+.ph-input .box{flex:1; background:rgba(128,128,128,.14); border-radius:999px; padding:.15rem .7rem}
+.note-side{font-size:.72rem; color:var(--text-soft); text-align:center; margin-top:.5rem}
+
+/* เช็กลิสต์ */
+.check td:first-child{white-space:nowrap}
+.box{
+  display:inline-block; width:.85rem; height:.85rem; border:1.5px solid var(--text-soft);
+  border-radius:3px; vertical-align:-1px; margin-right:.35rem;
+}
+footer.end{
+  margin-top:3rem; padding-top:1.4rem; border-top:1px solid var(--line);
+  color:var(--text-soft); font-size:.9rem;
+}
+@media print{ .theme-btn,.toc{display:none} }
+</style>
+</head>
+<body>
+
+<button class="theme-btn" id="themeBtn" type="button" aria-label="สลับโหมดสว่าง/มืด">☾ โหมดมืด</button>
+
+<div class="shell">
+
+  <header class="masthead">
+    <p class="eyebrow">TONPALEARN · เอกสารข้อกำหนดผลิตภัณฑ์ (PRD)</p>
+    <h1>ผู้ช่วยตอบแชทเพจเฟซบุ๊ก</h1>
+    <p class="lede">
+      บอตที่ตอบคำถามคนทักเพจได้เองตลอด 24 ชั่วโมง เก็บชื่อ-เบอร์ของคนที่สนใจไว้ให้
+      และรู้จักส่งต่อให้คนจริงเมื่อเกินความสามารถของมัน — เอกสารนี้อธิบายว่าระบบทำอะไร
+      ทำงานตามลำดับไหน และหน้าตาเป็นแบบไหน
+    </p>
+    <div class="meta-row">
+      <span class="pill gold">เวอร์ชัน 1.0</span>
+      <span class="pill">5 สิงหาคม 2569</span>
+      <span class="pill">สรุปจาก docs/SPEC.md + docs/00-PM-BRIEF.md</span>
+      <span class="pill">อ่านจบใน ~15 นาที</span>
+    </div>
+  </header>
+
+  <div class="layout">
+
+    <!-- ══════════ สารบัญ ══════════ -->
+    <aside class="toc toc-sticky-mobile">
+      <p class="toc-title">สารบัญ</p>
+      <nav id="toc">
+        <a href="#a">A · สรุปผู้บริหาร</a>
+        <a href="#b">B · เนื้อหา PRD</a>
+        <a href="#c">C · Flow การใช้งาน</a>
+        <a href="#d">D · หน้าจอจำลอง</a>
+        <a href="#e">E · แผนส่งมอบ</a>
+      </nav>
+    </aside>
+
+    <main>
+
+    <!-- ══════════════════════ A · สรุปผู้บริหาร ══════════════════════ -->
+    <section class="band" id="a">
+      <span class="sec-no">ส่วน A</span>
+      <h2 class="sec">สรุปผู้บริหาร — อ่าน 1 นาทีจบ</h2>
+
+      <h3>โจทย์</h3>
+      <p>
+        เพจ TONPALEARN มีคนทักเข้ามาถามซ้ำ ๆ เรื่องเดิม — สอนอะไร ราคาเท่าไร อบรมวันไหน
+        รับสอนในองค์กรไหม สมัครยังไง ต้นตอบเองไม่ทันตอนสอนหรือเดินทาง
+        คนที่สนใจจริงจึงหลุดมือไปเงียบ ๆ โดยไม่มีใครเก็บชื่อไว้เลย
+        <strong>ต้นทุนของการไม่แก้คือโอกาสขายที่หายไปแบบวัดไม่ได้</strong> เพราะไม่มีบันทึกอะไรเหลืออยู่
+      </p>
+
+      <h3>สิ่งที่ระบบทำ — 3 ข้อ</h3>
+      <div class="grid g3">
+        <div class="card">
+          <p class="eyebrow">หนึ่ง</p>
+          <p><strong>ตอบแทนได้ทันที</strong></p>
+          <p class="soft" style="margin:0">
+            ใช้กติกาคำสำคัญและคำถามที่ถามบ่อยก่อน ถ้าไม่ตรงจึงค้นฐานความรู้แล้วให้ AI เรียบเรียง
+            — และห้ามแต่งราคา วันเวลา หรือเงื่อนไขขึ้นเองเด็ดขาด
+          </p>
+        </div>
+        <div class="card">
+          <p class="eyebrow">สอง</p>
+          <p><strong>เก็บคนที่สนใจไว้ให้</strong></p>
+          <p class="soft" style="margin:0">
+            ถามทีละขั้น ชื่อ → ช่องทางติดต่อ → ความสนใจ โดยขออนุญาตก่อน
+            แล้วเก็บเข้าหน้า "ผู้สนใจ" ดาวน์โหลดเป็นไฟล์ตารางได้
+          </p>
+        </div>
+        <div class="card">
+          <p class="eyebrow">สาม</p>
+          <p><strong>ส่งต่อให้คนจริง</strong></p>
+          <p class="soft" style="margin:0">
+            ถ้าลูกค้าขอคุยกับคน หรือบอตตอบไม่ได้ ระบบโอนแชทเข้ากล่องข้อความของเพจ
+            แล้วบอตเงียบสนิทจนกว่าจะกดคืนสาย
+          </p>
+        </div>
+      </div>
+
+      <h3>สิ่งที่ไม่ทำในรอบนี้</h3>
+      <ul class="no">
+        <li>ตอบคอมเมนต์ใต้โพสต์อัตโนมัติ — ตอบพลาดต่อหน้าสาธารณะเสียหายกว่าตอบพลาดในแชท (ยกไปเฟส 2)</li>
+        <li>ขายต่อเป็นระบบหลายเพจ — เตรียมโครงฐานข้อมูลไว้แล้ว แต่ยังไม่ทำระบบสมาชิก/บิล</li>
+        <li>รับชำระเงินในแชท — ยังส่งลิงก์ไปหน้าจองของ tonpalearn.com เหมือนเดิม</li>
+        <li>วิเคราะห์รูปที่ลูกค้าส่งมา — ต้นทุนกับความซับซ้อนไม่คุ้มปริมาณตอนนี้</li>
+        <li>แปลหลายภาษาอัตโนมัติ — ลูกค้าจริงเกือบทั้งหมดเป็นคนไทย</li>
+      </ul>
+
+      <h3>สถานะปัจจุบัน</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th class="nowrap">ก้อนงาน</th><th class="nowrap">สถานะ</th><th>หมายเหตุ</th></tr></thead>
+          <tbody>
+            <tr><td>เอกสาร (brief · spec · PRD ฉบับนี้)</td><td class="nowrap"><span class="tag ok">เกือบครบ</span></td><td>เหลือปิดรีวิวกับต้น</td></tr>
+            <tr><td>หลังบ้าน — webhook · สมองบอต · ฐานข้อมูล</td><td class="nowrap"><span class="tag ok">เสร็จรอบแรก</span></td><td>80 เทสต์อัตโนมัติผ่านทั้งหมด · ผ่านการสอบทาน (red-team) 1 รอบ แก้ blocker ครบ 6 ข้อ</td></tr>
+            <tr><td>หน้าผู้ดูแล 9 หน้า</td><td class="nowrap"><span class="tag p1">กำลังทำ</span></td><td>โครงครบแล้ว รอตรวจด้วยตาจริง</td></tr>
+            <tr><td>ตรวจหาจุดแตกก่อนขึ้นจริง (red-team)</td><td class="nowrap"><span class="tag p2">ยังไม่เริ่ม</span></td><td>ต้องผ่านก่อน deploy</td></tr>
+            <tr><td>ขึ้นใช้งานจริง</td><td class="nowrap"><span class="tag p2">รอของจากต้น</span></td><td>รอค่าเชื่อมต่อ 8 ตัว + เนื้อหาคำถามที่ถามบ่อย 5 ข้อ</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout warn">
+        <p class="h">สิ่งที่ค้างอยู่ที่ต้นคนเดียว</p>
+        <p style="margin:0">
+          คำตอบเรื่อง <strong>ราคา · วันอบรม · เงื่อนไข</strong> ยังเป็นช่องว่างในระบบ (ขึ้นต้นด้วยคำว่า
+          <code>[กรอกเอง]</code>) — ตั้งใจให้เป็นแบบนั้น เพราะระบบถูกออกแบบไม่ให้เดาตัวเลขเอง
+          ตราบใดที่ยังไม่กรอก บอตจะโยนคำถามพวกนี้ให้คนตอบทุกครั้ง
+        </p>
+      </div>
+    </section>
+
+    <!-- ══════════════════════ B · PRD ══════════════════════ -->
+    <section class="band" id="b">
+      <span class="sec-no">ส่วน B</span>
+      <h2 class="sec">เนื้อหา PRD</h2>
+
+      <h3 id="b-goals">เป้าหมาย (Goals)</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th class="nowrap">รหัส</th><th>เป้าหมาย</th><th>วัดยังไง</th></tr></thead>
+          <tbody>
+            <tr><td class="nowrap"><strong>G1</strong></td><td>ตอบคำถามที่ถามบ่อยได้เองโดยไม่ต้องรอคน</td><td>อย่างน้อย 60% ของข้อความที่บอตส่งออก มาจากกติกา/คำถามที่ถามบ่อย ภายใน 30 วัน</td></tr>
+            <tr><td class="nowrap"><strong>G2</strong></td><td>ไม่ปล่อยให้คนสนใจหลุดมือ</td><td>อย่างน้อย 30% ของบทสนทนาที่เข้าข่ายสนใจ จบด้วยการมีชื่อ + ช่องทางติดต่อในระบบ</td></tr>
+            <tr><td class="nowrap"><strong>G3</strong></td><td>เวลาตอบครั้งแรกสั้นลง</td><td>ค่ากลางของเวลาตอบครั้งแรก น้อยกว่า 10 วินาที</td></tr>
+            <tr><td class="nowrap"><strong>G4</strong></td><td>ไม่ทำให้ความน่าเชื่อถือเสีย</td><td>จำนวนครั้งที่บอตตอบผิดข้อเท็จจริงจนแอดมินต้องตามแก้ = 0 ครั้ง/เดือน</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="b-nongoals">สิ่งที่ตั้งใจไม่ทำ (Non-Goals)</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ไม่ทำอะไร</th><th>ทำไมถึงตัดออก</th></tr></thead>
+          <tbody>
+            <tr><td>ตอบคอมเมนต์ใต้โพสต์อัตโนมัติ</td><td>ต้องขอสิทธิ์เพิ่มจากเฟซบุ๊ก และตอบพลาดต่อหน้าสาธารณะเสียหายกว่าตอบพลาดในแชท → เฟส 2</td></tr>
+            <tr><td>ขายต่อเป็นระบบหลายเพจ (SaaS)</td><td>ใส่ช่องแยกเพจไว้ในฐานข้อมูลแล้ว แต่ระบบสมาชิก/เก็บเงินไม่คุ้มจะทำในรอบนี้</td></tr>
+            <tr><td>รับชำระเงินในแชท</td><td>เส้นทางเดิมผ่านหน้าจองของเว็บใช้ได้อยู่แล้ว ไม่มีเหตุให้เพิ่มความเสี่ยง</td></tr>
+            <tr><td>วิเคราะห์รูปที่ลูกค้าส่งมา</td><td>ต้นทุนกับความซับซ้อนไม่คุ้มปริมาณตอนนี้</td></tr>
+            <tr><td>แปลหลายภาษาอัตโนมัติ</td><td>ลูกค้าจริงเกือบทั้งหมดเป็นคนไทย</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="b-personas">คนที่เราออกแบบให้ (Personas)</h3>
+      <div class="grid g3">
+        <div class="card">
+          <p class="badge">P1</p>
+          <p style="margin:.4rem 0 .2rem"><strong>ผู้สนใจรายบุคคล</strong></p>
+          <p class="soft" style="font-size:.95rem">คนทำงานที่เห็นโพสต์แล้วอยากเรียน AI</p>
+          <p style="margin:.5rem 0 .2rem"><strong>ต้องการ:</strong> รู้ราคา วันอบรม และวิธีสมัคร เร็ว ๆ</p>
+          <p style="margin:0"><strong>กลัว:</strong> ทักไปแล้วเงียบ หรือโดนขายแบบกดดัน</p>
+        </div>
+        <div class="card">
+          <p class="badge">P2</p>
+          <p style="margin:.4rem 0 .2rem"><strong>ผู้ติดต่อองค์กร</strong></p>
+          <p class="soft" style="font-size:.95rem">ฝ่ายบุคคลหรือหัวหน้าแผนกที่อยากจ้างไปสอนในบริษัท</p>
+          <p style="margin:.5rem 0 .2rem"><strong>ต้องการ:</strong> รู้ว่ารับจัดในองค์กรไหม และขอใบเสนอราคา</p>
+          <p style="margin:0"><strong>กลัว:</strong> ต้องอธิบายเรื่องเดิมซ้ำหลายรอบกับหลายคน</p>
+        </div>
+        <div class="card">
+          <p class="badge">P3</p>
+          <p style="margin:.4rem 0 .2rem"><strong>แอดมินเพจ</strong></p>
+          <p class="soft" style="font-size:.95rem">ต้น หรือผู้ช่วย</p>
+          <p style="margin:.5rem 0 .2rem"><strong>ต้องการ:</strong> เห็นว่ามีใครทักบ้าง และแทรกเข้าไปคุยเองได้ทันที</p>
+          <p style="margin:0"><strong>กลัว:</strong> บอตตอบมั่วแทนตัวเอง หรือไม่รู้ว่าบอตตอบอะไรไป</p>
+        </div>
+      </div>
+
+      <h3 id="b-stories">เรื่องเล่าการใช้งาน (User Stories)</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th class="nowrap">#</th><th class="nowrap">ใคร</th><th>อยากทำอะไร เพื่ออะไร</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>P1</td><td>ได้คำตอบเรื่องราคาทันทีที่ถาม เพื่อตัดสินใจโดยไม่ต้องรอ</td></tr>
+            <tr><td>2</td><td>P1</td><td>เห็นตัวเลือกเป็นปุ่มกด เพื่อไม่ต้องคิดเองว่าจะถามอะไรดี</td></tr>
+            <tr><td>3</td><td>P1</td><td>ฝากความสนใจไว้แล้วให้ทีมงานติดต่อกลับ เพื่อไม่ต้องเฝ้าแชท</td></tr>
+            <tr><td>4</td><td>P2</td><td>รู้ว่ารับจัดอบรมในองค์กรไหม เพื่อประเมินว่าคุยต่อได้หรือเปล่า</td></tr>
+            <tr><td>5</td><td>P2</td><td>ฝากชื่อบริษัทและเบอร์ไว้ เพื่อให้ทีมส่งใบเสนอราคามาให้</td></tr>
+            <tr><td>6</td><td>P3</td><td>เห็นทุกบทสนทนาในที่เดียว เพื่อไม่พลาดคนสำคัญ</td></tr>
+            <tr><td>7</td><td>P3</td><td>กดปุ่มเดียวแล้วเข้าไปคุยเอง เพื่อรับช่วงต่อจากบอตได้ทันที</td></tr>
+            <tr><td>8</td><td>P3</td><td>รู้ว่าคำตอบแต่ละอันบอตเอามาจากไหน เพื่อไล่แก้ต้นตอเมื่อตอบไม่ดี</td></tr>
+            <tr><td>9</td><td>P3</td><td>แก้คำถามที่ถามบ่อยเองได้ เพื่อไม่ต้องรอโปรแกรมเมอร์</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>เคสขอบที่ต้องรองรับ</h4>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>สถานการณ์</th><th>พฤติกรรมที่ต้องเป็น</th></tr></thead>
+          <tbody>
+            <tr><td>บอตไม่รู้คำตอบ</td><td>เสนอส่งต่อให้คน ไม่เดา ไม่แต่งข้อมูล</td></tr>
+            <tr><td>ลูกค้าโกรธ / ขอคุยกับคน</td><td>โอนสายทันที และบอตเงียบสนิทหลังจากนั้น</td></tr>
+            <tr><td>ส่งรูป สติกเกอร์ หรือไฟล์ โดยไม่มีข้อความ</td><td>ตอบรับว่าได้รับแล้ว และชวนพิมพ์บอกว่าต้องการอะไร</td></tr>
+            <tr><td>พิมพ์นอกเรื่องสิ้นเชิง</td><td>ไม่มีเนื้อหาอ้างอิงให้ตอบ → โยนหาคน ไม่เรียกโมเดลให้เปลืองเงิน</td></tr>
+            <tr><td>เฟซบุ๊กยิงข้อความเดิมซ้ำ</td><td>ประมวลผลครั้งเดียว ห้ามตอบลูกค้าซ้ำ</td></tr>
+            <tr><td>คำตอบยาวเกิน 2,000 ตัวอักษร</td><td>ตัดเป็นหลายข้อความ โดยพยายามตัดที่ช่องว่างหรือขึ้นบรรทัดใหม่</td></tr>
+            <tr><td>ข้อความมีคำสั่งหลอกโมเดล เช่น "ลืมกติกาเดิม"</td><td>ถือเป็นข้อความธรรมดา — คำสั่งของระบบห้ามทำตามคำสั่งที่แทรกมา</td></tr>
+            <tr><td>แอดมินตอบหลังเลย 24 ชั่วโมง</td><td>ลองส่งด้วยสิทธิ์ "เจ้าหน้าที่ติดต่อกลับ" และถ้าไม่ผ่าน ต้องอธิบายสาเหตุเป็นภาษาคน</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="b-req">ข้อกำหนด (Requirements)</h3>
+      <p class="readnote">
+        <span class="tag p0">P0</span> = ไม่มีไม่ขึ้นระบบ ·
+        <span class="tag p1">P1</span> = ตามมาเร็ว ๆ นี้ ·
+        <span class="tag p2">P2</span> = เผื่ออนาคต ออกแบบรองรับแล้วแต่ยังไม่สร้าง
+      </p>
+
+      <h4>P0 — ไม่มีไม่ขึ้น</h4>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th class="nowrap">รหัส</th><th class="nowrap">เรื่อง</th><th>ต้องเป็นจริงว่า</th></tr></thead>
+          <tbody>
+            <tr><td class="nowrap"><strong>FR-01</strong></td><td class="nowrap">ยืนยันการเชื่อมต่อ</td><td>เมื่อเฟซบุ๊กมาขอยืนยันช่องทางรับข้อความ ถ้ารหัสยืนยันตรงต้องตอบรับ ถ้าไม่ตรงต้องปฏิเสธ</td></tr>
+            <tr><td class="nowrap"><strong>FR-02</strong></td><td class="nowrap">ตรวจลายเซ็นทุกข้อความ</td><td>ทุกข้อความขาเข้าต้องพิสูจน์ได้ว่ามาจากเฟซบุ๊กจริง ถ้าลายเซ็นไม่ตรง ห้ามประมวลผลใด ๆ ทั้งสิ้น</td></tr>
+            <tr><td class="nowrap"><strong>FR-03</strong></td><td class="nowrap">ตอบเฟซบุ๊กให้ไว</td><td>รับแล้วต้องตอบรับกลับทันที แล้วค่อยทำงานหนักต่อเบื้องหลัง ห้ามให้เฟซบุ๊กรอจนหมดเวลา</td></tr>
+            <tr><td class="nowrap"><strong>FR-04</strong></td><td class="nowrap">กันประมวลผลซ้ำ</td><td>ถ้าข้อความเดิมถูกส่งมาอีกครั้ง ต้องข้ามทันที โดยบังคับที่ระดับฐานข้อมูล ไม่ใช่แค่จำไว้ในหน่วยความจำ</td></tr>
+            <tr><td class="nowrap"><strong>FR-05</strong></td><td class="nowrap">บอตเงียบเมื่อคนคุย</td><td>ถ้าคนกำลังคุยอยู่ หรือปิดสวิตช์บอตไว้ บอตต้องไม่ส่งอะไรออกไปเลย แต่ยังบันทึกข้อความและตั้งธง "ยังไม่ได้อ่าน"</td></tr>
+            <tr><td class="nowrap"><strong>FR-06</strong></td><td class="nowrap">คำสั่งพิเศษมาก่อน</td><td>ถ้าลูกค้าพิมพ์ "คุยกับคน" หรือ "ขอแอดมิน" ต้องโอนสายทันที แม้จะมีกติกาอื่นที่ตรงกว่า</td></tr>
+            <tr><td class="nowrap"><strong>FR-07</strong></td><td class="nowrap">กติกาคำสำคัญ</td><td>ถ้าข้อความตรงกติกาที่แอดมินตั้งไว้ ให้ทำตามกติกาลำดับต้นสุด และห้ามลงไปเรียกโมเดล — กติกาที่เขียนผิดต้องไม่ทำให้ระบบล้ม</td></tr>
+            <tr><td class="nowrap"><strong>FR-08</strong></td><td class="nowrap">คำถามที่ถามบ่อย</td><td>ถ้าค้นเจอคำถามที่คล้ายพอและคำตอบกรอกจริงแล้ว ให้ตอบตรง ๆ โดยไม่เรียกโมเดล</td></tr>
+            <tr><td class="nowrap"><strong>FR-09</strong></td><td class="nowrap">ฐานความรู้ + โมเดล</td><td>โมเดลตอบได้เฉพาะจากเนื้อหาที่ส่งไปให้เท่านั้น ถ้าข้อมูลไม่พอต้องบอกว่าตอบไม่ได้แล้วโยนหาคน — <strong>ห้ามแต่งราคา วันเวลา จำนวน หรือเงื่อนไขขึ้นเองเด็ดขาด</strong></td></tr>
+            <tr><td class="nowrap"><strong>FR-10</strong></td><td class="nowrap">เพดานค่าใช้จ่าย</td><td>เมื่อเรียกโมเดลครบจำนวนที่ตั้งไว้ต่อวัน ห้ามเรียกเพิ่ม ให้โยนหาคนแทน</td></tr>
+            <tr><td class="nowrap"><strong>FR-11</strong></td><td class="nowrap">เก็บข้อมูลทีละขั้น</td><td>ถามทีละอย่าง ชื่อ → ช่องทางติดต่อ → ความสนใจ · ขออนุญาตก่อนถามข้อแรกและบันทึกเวลาที่ยินยอม · เบอร์/อีเมลไม่ถูกรูปแบบให้ถามซ้ำ · ลูกค้าปฏิเสธเมื่อไรให้หยุดทันทีและไม่บันทึกอะไร</td></tr>
+            <tr><td class="nowrap"><strong>FR-12</strong></td><td class="nowrap">โอนสายและคืนสาย</td><td>โอนแชทเข้ากล่องข้อความของเพจพร้อมบันทึกประวัติ และเมื่อเฟซบุ๊กคืนสายกลับมา ต้องกลับเป็นบอตดูแลอัตโนมัติ</td></tr>
+            <tr><td class="nowrap"><strong>FR-13</strong></td><td class="nowrap">หน้าผู้ดูแล</td><td>ล็อกอินแล้วต้องทำได้ครบ: ดูภาพรวม · อ่านทุกบทสนทนา · พิมพ์ตอบเอง · ขอคุยเอง/คืนให้บอต · แก้คำถามที่ถามบ่อย · แก้กติกา · เพิ่มฐานความรู้ · ดูและส่งออกรายชื่อผู้สนใจ · แก้ข้อความระบบ · เปิด-ปิดบอตทั้งเพจ</td></tr>
+            <tr><td class="nowrap"><strong>FR-14</strong></td><td class="nowrap">ความเป็นส่วนตัว</td><td>ฐานข้อมูลปิดจากภายนอกทุกตาราง · ห้ามบันทึกเนื้อหาข้อความลูกค้าลงบันทึกระบบ · ต้องแจ้งขออนุญาตก่อนเก็บชื่อ/เบอร์</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>P1 — ตามมาเร็ว ๆ นี้</h4>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th class="nowrap">รหัส</th><th>เรื่อง</th></tr></thead>
+          <tbody>
+            <tr><td class="nowrap"><strong>FR-15</strong></td><td>แจ้งเตือนแอดมินเมื่อมีผู้สนใจใหม่ (ผ่าน LINE หรืออีเมล)</td></tr>
+            <tr><td class="nowrap"><strong>FR-16</strong></td><td>ค้นหาข้อความย้อนหลังในหน้ากล่องข้อความ</td></tr>
+            <tr><td class="nowrap"><strong>FR-17</strong></td><td>รายงานสรุปรายสัปดาห์ส่งอัตโนมัติ</td></tr>
+            <tr><td class="nowrap"><strong>FR-18</strong></td><td>บันทึกคำถามที่บอตตอบไม่ได้ ไว้ให้แอดมินกดสร้างเป็นคำถามที่ถามบ่อยได้ทันที</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>P2 — เผื่ออนาคต</h4>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th class="nowrap">รหัส</th><th>เรื่อง</th><th>เตรียมอะไรไว้แล้ว</th></tr></thead>
+          <tbody>
+            <tr><td class="nowrap"><strong>FR-19</strong></td><td>ตอบคอมเมนต์ใต้โพสต์ แล้วส่งข้อความส่วนตัวต่อ</td><td>ยังไม่มี ต้องขอสิทธิ์เพิ่มจากเฟซบุ๊ก</td></tr>
+            <tr><td class="nowrap"><strong>FR-20</strong></td><td>ดูแลหลายเพจในระบบเดียว</td><td>ทุกตารางมีช่องแยกเพจแล้ว</td></tr>
+            <tr><td class="nowrap"><strong>FR-21</strong></td><td>ค้นฐานความรู้ด้วยเวกเตอร์ (ค้นตามความหมาย ไม่ใช่ตามคำ)</td><td>ช่องเก็บเวกเตอร์เตรียมไว้ในฐานข้อมูลแล้ว</td></tr>
+            <tr><td class="nowrap"><strong>FR-22</strong></td><td>ส่งข้อความหาลูกค้ากลุ่มใหญ่พร้อมกัน</td><td>ยังไม่มี ต้องดูนโยบายเฟซบุ๊กก่อน</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="b-metrics">ตัวชี้วัดความสำเร็จ</h3>
+      <h4>ขยับเร็ว — ดูได้ใน 1–4 สัปดาห์</h4>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ตัวชี้วัด</th><th class="nowrap">เป้า</th><th>ดูจากไหน</th></tr></thead>
+          <tbody>
+            <tr><td>สัดส่วนคำตอบที่ไม่ต้องใช้โมเดล</td><td class="nowrap">≥ 60%</td><td>หน้าภาพรวม → แถบ "คำตอบมาจากไหนบ้าง"</td></tr>
+            <tr><td>เวลาตอบครั้งแรก (ค่ากลาง)</td><td class="nowrap">&lt; 10 วินาที</td><td>ผลต่างเวลาระหว่างข้อความเข้ากับข้อความตอบแรก</td></tr>
+            <tr><td>อัตราการโยนหาคน</td><td class="nowrap">&lt; 30%</td><td>สัดส่วน "โอนหาคน" ในแถบเดียวกัน</td></tr>
+            <tr><td>ผู้สนใจใหม่ต่อสัปดาห์</td><td class="nowrap">≥ 5 คน</td><td>หน้าผู้สนใจ</td></tr>
+            <tr><td>ค่าใช้โมเดลต่อวัน</td><td class="nowrap">&lt; 40% ของเพดาน</td><td>การ์ด "เรียกโมเดลวันนี้"</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>ขยับช้า — ดูรายไตรมาส</h4>
+      <ul class="clean">
+        <li>จำนวนผู้สนใจที่กลายเป็นผู้เรียนจริง (สถานะ "ปิดได้" ในหน้าผู้สนใจ)</li>
+        <li>เวลาที่แอดมินต้องใช้ตอบแชทต่อสัปดาห์ — ประเมินเอง เทียบก่อน/หลัง</li>
+        <li>จำนวนครั้งที่บอตตอบผิดจนต้องตามแก้ — <strong>เป้าคือศูนย์</strong></li>
+      </ul>
+
+      <h3 id="b-open">คำถามที่ยังไม่มีคำตอบ (Open Questions)</h3>
+      <div class="callout warn">
+        <p class="h">ต้องได้คำตอบก่อนเปิดใช้จริง — 4 ข้อนี้ค้างที่ต้นเป็นหลัก</p>
+        <div class="table-wrap" style="margin:.7rem 0 0; background:transparent">
+          <table>
+            <thead><tr><th class="nowrap">#</th><th>คำถาม</th><th class="nowrap">ใครตอบ</th></tr></thead>
+            <tbody>
+              <tr><td class="nowrap"><span class="tag q">Q1</span></td><td>เวอร์ชันของช่องทางเชื่อมต่อเฟซบุ๊กที่เป็นปัจจุบันคือตัวไหน — ค่าที่ตั้งไว้ในโค้ดยังไม่ได้ยืนยัน</td><td class="nowrap">ทีมพัฒนา</td></tr>
+              <tr><td class="nowrap"><span class="tag q">Q2</span></td><td><strong>ราคา วันอบรม และเงื่อนไขจริงของแต่ละคอร์ส</strong> เพื่อกรอกแทนช่องว่าง <code>[กรอกเอง]</code> ทั้ง 5 ข้อ</td><td class="nowrap"><strong>ต้น</strong></td></tr>
+              <tr><td class="nowrap"><span class="tag q">Q3</span></td><td>เพจจะขอสิทธิ์ "เจ้าหน้าที่ติดต่อกลับ" ไหม — มีผลกับการตอบหลังพ้น 24 ชั่วโมง</td><td class="nowrap"><strong>ต้น</strong> + เฟซบุ๊ก</td></tr>
+              <tr><td class="nowrap"><span class="tag q">Q4</span></td><td>ข้อความทักทายและบุคลิกของบอต อยากให้พูดด้วยเสียงแบบไหน</td><td class="nowrap"><strong>ต้น</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <p class="readnote"><strong>ตอบระหว่างทางได้ ไม่บล็อกงาน:</strong></p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th class="nowrap">#</th><th>คำถาม</th><th class="nowrap">ใครตอบ</th></tr></thead>
+          <tbody>
+            <tr><td class="nowrap">Q5</td><td>ควรแจ้งเตือนผู้สนใจใหม่เข้า LINE ของต้นเลยไหม</td><td class="nowrap">ต้น</td></tr>
+            <tr><td class="nowrap">Q6</td><td>ถ้าปริมาณโตขึ้น จะย้ายไปค้นแบบเข้าใจความหมายเมื่อไร และใช้เจ้าไหน</td><td class="nowrap">ทีมพัฒนา + ต้น</td></tr>
+            <tr><td class="nowrap">Q7</td><td>เก็บประวัติแชทไว้นานแค่ไหนจึงพอดีระหว่างประโยชน์กับความเสี่ยง</td><td class="nowrap">ต้น</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ══════════════════════ C · FLOW ══════════════════════ -->
+    <section class="band" id="c">
+      <span class="sec-no">ส่วน C</span>
+      <h2 class="sec">Flow การใช้งาน + สถานะของบทสนทนา</h2>
+      <p class="readnote">
+        ทุกภาพด้านล่างอ่านจากบนลงล่างตามเวลา เส้นลูกศรคือ "ใครพูดกับใคร"
+        ถ้าเปิดไฟล์นี้ตอนไม่มีอินเทอร์เน็ต ภาพจะวาดไม่ได้ — กดที่ <em>ดูเป็นข้อความ</em> ใต้ภาพแทนได้
+      </p>
+
+      <h3 id="c0">ภาพรวมสถาปัตยกรรม — ของชิ้นไหนคุยกับชิ้นไหน</h3>
+      <div class="diagram">
+        <div class="frame">
+          <p class="fallback-note">แสดงภาพไม่ได้ (โหลดตัววาดไดอะแกรมไม่สำเร็จ) — กด "ดูเป็นข้อความ" ด้านล่างครับ</p>
+          <pre class="mermaid">
+flowchart TB
+  U["ลูกค้าใน Messenger"] -->|ข้อความ| FB["Facebook Messenger"]
+  FB -->|ส่งต่อพร้อมลายเซ็น| V["ระบบเรา (เว็บเซิร์ฟเวอร์)"]
+  V -->|ตอบรับทันที| FB
+  V -.->|ทำงานต่อเบื้องหลัง| B["สมองไฮบริด"]
+  B --> S[("ฐานข้อมูล")]
+  B -->|เฉพาะเมื่อจำเป็น| AI["โมเดล AI"]
+  B -->|ส่งคำตอบ| FB
+  A["แอดมิน"] --> W["หน้าผู้ดูแล"]
+  W --> S
+  W -->|ตอบเอง / โอนสาย| FB
+          </pre>
+        </div>
+        <details class="txt"><summary>ดูเป็นข้อความ</summary><pre>
+ลูกค้าใน Messenger  --ข้อความ-->  Facebook Messenger
+Facebook Messenger  --ส่งต่อพร้อมลายเซ็น-->  ระบบเรา (เว็บเซิร์ฟเวอร์)
+ระบบเรา  --ตอบรับทันที-->  Facebook Messenger
+ระบบเรา  ..ทำงานต่อเบื้องหลัง..>  สมองไฮบริด
+สมองไฮบริด  -->  ฐานข้อมูล
+สมองไฮบริด  --เฉพาะเมื่อจำเป็น-->  โมเดล AI
+สมองไฮบริด  --ส่งคำตอบ-->  Facebook Messenger
+แอดมิน  -->  หน้าผู้ดูแล  -->  ฐานข้อมูล
+หน้าผู้ดูแล  --ตอบเอง / โอนสาย-->  Facebook Messenger
+        </pre></details>
+        <p class="readnote">
+          <strong>เกิดอะไรขึ้นตามลำดับ:</strong> เฟซบุ๊กส่งข้อความมาที่ระบบเรา ระบบตรวจลายเซ็นว่าของจริงไหม
+          แล้วตอบรับกลับทันทีเพื่อไม่ให้เฟซบุ๊กยิงซ้ำ จากนั้นค่อยทำงานหนักเบื้องหลัง —
+          จองสิทธิ์กันประมวลผลซ้ำ บันทึกข้อความ ให้สมองตัดสินใจ แล้วส่งคำตอบกลับ
+          ส่วนแอดมินใช้หน้าเว็บอีกทางหนึ่ง เข้าถึงข้อมูลเดียวกันและส่งข้อความเองได้
+        </p>
+      </div>
+
+      <h3 id="c1">F1 — ยืนยันการเชื่อมต่อครั้งแรก (ทำครั้งเดียวตอนติดตั้ง)</h3>
+      <div class="diagram">
+        <div class="frame">
+          <p class="fallback-note">แสดงภาพไม่ได้ (โหลดตัววาดไดอะแกรมไม่สำเร็จ) — กด "ดูเป็นข้อความ" ด้านล่างครับ</p>
+          <pre class="mermaid">
+sequenceDiagram
+  participant A as แอดมิน
+  participant FB as Facebook
+  participant S as ระบบเรา
+  A->>FB: กรอกที่อยู่ระบบ + รหัสยืนยัน
+  FB->>S: ขอยืนยันพร้อมรหัสและคำท้า
+  S->>S: เทียบรหัสกับค่าที่ตั้งไว้
+  alt ตรงกัน
+    S-->>FB: ตอบรับพร้อมคำท้าเดิม
+    FB-->>A: เชื่อมต่อสำเร็จ
+  else ไม่ตรง
+    S-->>FB: ปฏิเสธ
+    FB-->>A: ตั้งค่าไม่สำเร็จ
+  end
+          </pre>
+        </div>
+        <details class="txt"><summary>ดูเป็นข้อความ</summary><pre>
+1. แอดมิน   -> Facebook : กรอกที่อยู่ระบบ + รหัสยืนยัน
+2. Facebook -> ระบบเรา  : ขอยืนยันพร้อมรหัสและคำท้า
+3. ระบบเรา            : เทียบรหัสกับค่าที่ตั้งไว้
+   ถ้าตรงกัน  : ระบบเรา -> Facebook ตอบรับพร้อมคำท้าเดิม -> แอดมินเห็น "เชื่อมต่อสำเร็จ"
+   ถ้าไม่ตรง : ระบบเรา -> Facebook ปฏิเสธ -> แอดมินเห็น "ตั้งค่าไม่สำเร็จ"
+        </pre></details>
+        <p class="readnote">
+          <strong>เกิดอะไรขึ้นตามลำดับ:</strong> ตอนติดตั้ง แอดมินบอกเฟซบุ๊กว่าจะส่งข้อความมาที่ไหน พร้อมรหัสลับที่ตั้งเอง
+          เฟซบุ๊กจะยิงมาถามก่อนหนึ่งครั้งเพื่อพิสูจน์ว่าเจ้าของระบบรู้รหัสนั้นจริง
+          ถ้ารหัสตรงกันจะเชื่อมต่อสำเร็จและใช้ตลอดไป ถ้าไม่ตรงจะตั้งค่าไม่ผ่าน — ทำครั้งเดียวจบ
+        </p>
+      </div>
+
+      <h3 id="c2">F2 — กติกาตรง ตอบทันที (เส้นทางที่ถูกที่สุด)</h3>
+      <div class="diagram">
+        <div class="frame">
+          <p class="fallback-note">แสดงภาพไม่ได้ (โหลดตัววาดไดอะแกรมไม่สำเร็จ) — กด "ดูเป็นข้อความ" ด้านล่างครับ</p>
+          <pre class="mermaid">
+sequenceDiagram
+  participant L as ลูกค้า
+  participant FB as Facebook
+  participant S as ระบบเรา
+  participant DB as ฐานข้อมูล
+  L->>FB: "สนใจคอร์สครับ"
+  FB->>S: ส่งข้อความ + ลายเซ็น
+  S-->>FB: ตอบรับทันที
+  S->>DB: จองสิทธิ์ประมวลผล (กันซ้ำ)
+  S->>DB: บันทึกข้อความขาเข้า
+  S->>FB: ทำเครื่องหมายอ่านแล้ว + กำลังพิมพ์
+  S->>DB: ดึงกติกาที่เปิดใช้งาน
+  S->>S: จับคู่ได้กับกติกา "สนใจ"
+  S->>FB: ส่งข้อความตอบ
+  FB->>L: ข้อความจากเพจ
+  S->>DB: บันทึกขาออก + ที่มา "กติกา: สนใจ"
+          </pre>
+        </div>
+        <details class="txt"><summary>ดูเป็นข้อความ</summary><pre>
+1.  ลูกค้า  -> Facebook : "สนใจคอร์สครับ"
+2.  Facebook-> ระบบเรา  : ส่งข้อความ + ลายเซ็น
+3.  ระบบเรา -> Facebook : ตอบรับทันที
+4.  ระบบเรา -> ฐานข้อมูล: จองสิทธิ์ประมวลผล (กันซ้ำ)
+5.  ระบบเรา -> ฐานข้อมูล: บันทึกข้อความขาเข้า
+6.  ระบบเรา -> Facebook : ทำเครื่องหมายอ่านแล้ว + กำลังพิมพ์
+7.  ระบบเรา -> ฐานข้อมูล: ดึงกติกาที่เปิดใช้งาน
+8.  ระบบเรา            : จับคู่ได้กับกติกา "สนใจ"
+9.  ระบบเรา -> Facebook -> ลูกค้า : ข้อความตอบจากเพจ
+10. ระบบเรา -> ฐานข้อมูล: บันทึกขาออก + ที่มา "กติกา: สนใจ"
+        </pre></details>
+        <p class="readnote">
+          <strong>เกิดอะไรขึ้นตามลำดับ:</strong> ลูกค้าพิมพ์คำที่แอดมินตั้งกติกาดักไว้ ระบบจึงหยิบคำตอบสำเร็จรูปตอบทันที
+          โดยไม่ต้องเรียกโมเดลเลย — เส้นทางนี้เร็วที่สุดและไม่มีค่าใช้จ่าย
+          ยิ่งตั้งกติกาและคำถามที่ถามบ่อยครบ ยิ่งมีข้อความวิ่งมาทางนี้มาก ค่าใช้จ่ายรวมยิ่งต่ำ
+        </p>
+      </div>
+
+      <h3 id="c3">F3 — ถามอิสระ ต้องค้นฐานความรู้</h3>
+      <div class="diagram">
+        <div class="frame">
+          <p class="fallback-note">แสดงภาพไม่ได้ (โหลดตัววาดไดอะแกรมไม่สำเร็จ) — กด "ดูเป็นข้อความ" ด้านล่างครับ</p>
+          <pre class="mermaid">
+sequenceDiagram
+  participant L as ลูกค้า
+  participant S as ระบบเรา
+  participant DB as ฐานข้อมูล
+  participant AI as โมเดล AI
+  L->>S: "เรียนออนไลน์ได้ไหม มีอัดวิดีโอย้อนหลังไหม"
+  S->>DB: ไม่มีกติกาตรง จึงค้นคำถามที่ถามบ่อย
+  DB-->>S: คะแนนความคล้ายต่ำกว่าเกณฑ์
+  S->>DB: ตรวจเพดานการใช้โมเดลวันนี้
+  DB-->>S: ยังไม่ถึงเพดาน
+  S->>DB: ค้นฐานความรู้
+  DB-->>S: ได้เนื้อหา 3 ท่อนที่ผ่านเกณฑ์
+  S->>AI: คำสั่งห้ามแต่งข้อมูล + เนื้อหาอ้างอิง + คำถาม
+  alt ข้อมูลพอ
+    AI-->>S: คำตอบที่อ้างเฉพาะเนื้อหาที่ให้
+    S->>L: ตอบลูกค้า
+    S->>DB: บันทึกที่มา "ฐานความรู้ + AI"
+  else ข้อมูลไม่พอ
+    AI-->>S: ตอบไม่ได้
+    S->>L: "ขอส่งต่อให้ทีมงานนะครับ"
+    S->>DB: โอนสาย + บันทึกประวัติ
+  end
+          </pre>
+        </div>
+        <details class="txt"><summary>ดูเป็นข้อความ</summary><pre>
+1. ลูกค้า -> ระบบเรา : "เรียนออนไลน์ได้ไหม มีอัดวิดีโอย้อนหลังไหม"
+2. ระบบเรา -> ฐานข้อมูล : ไม่มีกติกาตรง จึงค้นคำถามที่ถามบ่อย
+3. ฐานข้อมูล -> ระบบเรา : คะแนนความคล้ายต่ำกว่าเกณฑ์
+4. ระบบเรา -> ฐานข้อมูล : ตรวจเพดานการใช้โมเดลวันนี้ -> ยังไม่ถึงเพดาน
+5. ระบบเรา -> ฐานข้อมูล : ค้นฐานความรู้ -> ได้เนื้อหา 3 ท่อนที่ผ่านเกณฑ์
+6. ระบบเรา -> โมเดล AI : คำสั่งห้ามแต่งข้อมูล + เนื้อหาอ้างอิง + คำถาม
+   ถ้าข้อมูลพอ    : โมเดลตอบโดยอ้างเฉพาะเนื้อหาที่ให้ -> ตอบลูกค้า -> บันทึกที่มา "ฐานความรู้ + AI"
+   ถ้าข้อมูลไม่พอ : โมเดลบอก "ตอบไม่ได้" -> ระบบบอกลูกค้าว่าขอส่งต่อให้ทีมงาน -> โอนสาย + บันทึกประวัติ
+        </pre></details>
+        <p class="readnote">
+          <strong>เกิดอะไรขึ้นตามลำดับ:</strong> คำถามนี้ไม่ตรงกติกาและไม่เหมือนคำถามที่ถามบ่อยพอ
+          ระบบจึงเช็กก่อนว่าวันนี้ใช้โมเดลเกินเพดานหรือยัง แล้วค้นเนื้อหาที่เกี่ยวข้องจากฐานความรู้ส่งให้โมเดลเรียบเรียง
+          <strong>จุดสำคัญคือโมเดลถูกล็อกไว้ให้ตอบได้เฉพาะจากเนื้อหาที่ส่งไปเท่านั้น</strong>
+          ถ้าข้อมูลไม่พอ มันต้องบอกว่าตอบไม่ได้ แล้วระบบจะโยนให้คน ไม่ใช่เดาไปเรื่อย
+        </p>
+      </div>
+
+      <h3 id="c4">F4 — เก็บข้อมูลผู้สนใจทีละขั้น</h3>
+      <div class="diagram">
+        <div class="frame">
+          <p class="fallback-note">แสดงภาพไม่ได้ (โหลดตัววาดไดอะแกรมไม่สำเร็จ) — กด "ดูเป็นข้อความ" ด้านล่างครับ</p>
+          <pre class="mermaid">
+sequenceDiagram
+  participant L as ลูกค้า
+  participant S as ระบบเรา
+  participant DB as ฐานข้อมูล
+  L->>S: "สนใจครับ"
+  S->>DB: ตั้งสถานะกำลังเก็บข้อมูล + บันทึกเวลายินยอม
+  S->>L: แจ้งขออนุญาต + "ขอทราบชื่อครับ"
+  L->>S: "ต้น"
+  S->>DB: เก็บชื่อ แล้วไปขั้นช่องทางติดต่อ
+  S->>L: "ขอเบอร์โทรหรืออีเมลครับ"
+  L->>S: "ไม่มีเบอร์"
+  S->>L: "ขอเป็นเบอร์ 10 หลัก หรืออีเมลก็ได้ครับ"
+  L->>S: "0812345678"
+  S->>DB: เก็บเบอร์ แล้วไปขั้นความสนใจ
+  S->>L: "สนใจเรื่องไหนเป็นพิเศษครับ"
+  L->>S: "อยากจัดอบรมในบริษัท"
+  S->>DB: บันทึกผู้สนใจ (ประเภทองค์กร) + ตั้งธงให้แอดมินเห็น
+  S->>L: "รับข้อมูลเรียบร้อยครับ เดี๋ยวทีมงานติดต่อกลับนะครับ"
+          </pre>
+        </div>
+        <details class="txt"><summary>ดูเป็นข้อความ</summary><pre>
+1.  ลูกค้า -> ระบบ : "สนใจครับ"
+2.  ระบบ -> ฐานข้อมูล : ตั้งสถานะกำลังเก็บข้อมูล + บันทึกเวลายินยอม
+3.  ระบบ -> ลูกค้า : แจ้งขออนุญาตเก็บข้อมูล + "ขอทราบชื่อครับ"
+4.  ลูกค้า -> ระบบ : "ต้น"
+5.  ระบบ -> ฐานข้อมูล : เก็บชื่อ แล้วไปขั้นช่องทางติดต่อ
+6.  ระบบ -> ลูกค้า : "ขอเบอร์โทรหรืออีเมลครับ"
+7.  ลูกค้า -> ระบบ : "ไม่มีเบอร์"   (รูปแบบไม่ผ่าน)
+8.  ระบบ -> ลูกค้า : "ขอเป็นเบอร์ 10 หลัก หรืออีเมลก็ได้ครับ"  (ถามซ้ำ ไม่ข้ามขั้น)
+9.  ลูกค้า -> ระบบ : "0812345678"
+10. ระบบ -> ลูกค้า : "สนใจเรื่องไหนเป็นพิเศษครับ"
+11. ลูกค้า -> ระบบ : "อยากจัดอบรมในบริษัท"
+12. ระบบ -> ฐานข้อมูล : บันทึกผู้สนใจ (ประเภทองค์กร) + ตั้งธงให้แอดมินเห็น
+13. ระบบ -> ลูกค้า : "รับข้อมูลเรียบร้อยครับ เดี๋ยวทีมงานติดต่อกลับนะครับ"
+        </pre></details>
+        <p class="readnote">
+          <strong>เกิดอะไรขึ้นตามลำดับ:</strong> พอลูกค้าแสดงความสนใจ บอตจะขออนุญาตก่อนแล้วค่อยถามทีละอย่าง
+          ไม่ยิงรวดเดียวจนเหมือนแบบฟอร์ม ถ้าตอบไม่เข้ารูปแบบ เช่นไม่ใช่เบอร์หรืออีเมล จะถามซ้ำโดยไม่ข้ามขั้น
+          และถ้าลูกค้าบอกว่าไม่สะดวก บอตหยุดทันทีและไม่บันทึกอะไรเลย
+        </p>
+      </div>
+
+      <h3 id="c5">F5 — โอนหาคนและคืนสาย</h3>
+      <div class="diagram">
+        <div class="frame">
+          <p class="fallback-note">แสดงภาพไม่ได้ (โหลดตัววาดไดอะแกรมไม่สำเร็จ) — กด "ดูเป็นข้อความ" ด้านล่างครับ</p>
+          <pre class="mermaid">
+sequenceDiagram
+  participant L as ลูกค้า
+  participant S as ระบบเรา
+  participant FB as Facebook
+  participant A as แอดมิน
+  L->>S: "ขอคุยกับคนหน่อยครับ"
+  S->>L: "กำลังเรียกทีมงานมาคุยต่อให้ครับ"
+  S->>FB: โอนแชทเข้ากล่องข้อความของเพจ
+  S->>S: ตั้งสถานะ "รอคนมารับ"
+  Note over S: ตั้งแต่นี้บอตเงียบสนิท
+  L->>S: "ยังอยู่ไหมครับ"
+  S-->>S: เงียบ (บันทึกไว้ + ตั้งธงยังไม่ได้อ่าน)
+  A->>S: กด "ขอคุยเอง"
+  S->>FB: ดึงสิทธิ์คุยกลับมาที่ระบบ
+  S->>S: ตั้งสถานะ "คนกำลังคุย"
+  A->>S: พิมพ์ตอบในหน้าผู้ดูแล
+  S->>FB: ส่งข้อความ
+  FB->>L: ข้อความจากแอดมิน
+  A->>S: กด "คืนให้บอต"
+  S->>S: ตั้งสถานะ "บอตดูแลอยู่" + บันทึกประวัติ
+          </pre>
+        </div>
+        <details class="txt"><summary>ดูเป็นข้อความ</summary><pre>
+1.  ลูกค้า -> ระบบ : "ขอคุยกับคนหน่อยครับ"
+2.  ระบบ -> ลูกค้า : "กำลังเรียกทีมงานมาคุยต่อให้ครับ"
+3.  ระบบ -> Facebook : โอนแชทเข้ากล่องข้อความของเพจ
+4.  ระบบ : ตั้งสถานะ "รอคนมารับ"  → ตั้งแต่นี้บอตเงียบสนิท
+5.  ลูกค้า -> ระบบ : "ยังอยู่ไหมครับ"  → ระบบเงียบ แต่บันทึกไว้ + ตั้งธงยังไม่ได้อ่าน
+6.  แอดมิน -> ระบบ : กด "ขอคุยเอง"
+7.  ระบบ -> Facebook : ดึงสิทธิ์คุยกลับมาที่ระบบ → สถานะ "คนกำลังคุย"
+8.  แอดมิน -> ระบบ -> Facebook -> ลูกค้า : ข้อความจากแอดมิน
+9.  แอดมิน -> ระบบ : กด "คืนให้บอต"
+10. ระบบ : ตั้งสถานะ "บอตดูแลอยู่" + บันทึกประวัติการโอน
+        </pre></details>
+        <p class="readnote">
+          <strong>เกิดอะไรขึ้นตามลำดับ:</strong> คำว่า "ขอคุยกับคน" มาก่อนกติกาทุกข้อ ระบบจึงโอนทันที
+          ระหว่างรอคน บอตจะไม่พูดอะไรเลยแม้ลูกค้าจะพิมพ์มาอีก แต่ยังเก็บข้อความไว้และขึ้นธงว่ายังไม่ได้อ่าน
+          แอดมินกด "ขอคุยเอง" เพื่อรับช่วง และกด "คืนให้บอต" เมื่อคุยจบ — บอตจึงกลับมาทำงานตามปกติ
+        </p>
+      </div>
+
+      <h3 id="c6">สถานะของบทสนทนา (State machine)</h3>
+      <div class="diagram">
+        <div class="frame">
+          <p class="fallback-note">แสดงภาพไม่ได้ (โหลดตัววาดไดอะแกรมไม่สำเร็จ) — กด "ดูเป็นข้อความ" ด้านล่างครับ</p>
+          <pre class="mermaid">
+stateDiagram-v2
+  [*] --> บอตดูแลอยู่
+  บอตดูแลอยู่ --> กำลังเก็บข้อมูล: ลูกค้าแสดงความสนใจ / กดปุ่มองค์กร
+  กำลังเก็บข้อมูล --> บอตดูแลอยู่: เก็บครบ / ลูกค้าปฏิเสธ / ขอเมนู
+  บอตดูแลอยู่ --> รอคนมารับ: ขอคุยกับคน / ตอบไม่ได้ / ถึงเพดานโมเดล
+  กำลังเก็บข้อมูล --> รอคนมารับ: ขอคุยกับคน
+  รอคนมารับ --> คนกำลังคุย: แอดมินกด "ขอคุยเอง"
+  รอคนมารับ --> บอตดูแลอยู่: Facebook คืนสายกลับมา
+  คนกำลังคุย --> บอตดูแลอยู่: แอดมินกด "คืนให้บอต"
+  บอตดูแลอยู่ --> ปิดแล้ว: สงวนไว้ ยังไม่ใช้ในรอบนี้
+  ปิดแล้ว --> [*]
+          </pre>
+        </div>
+        <details class="txt"><summary>ดูเป็นข้อความ</summary><pre>
+เริ่มต้น              -> บอตดูแลอยู่
+บอตดูแลอยู่      -> กำลังเก็บข้อมูล : ลูกค้าแสดงความสนใจ / กดปุ่มองค์กร
+กำลังเก็บข้อมูล -> บอตดูแลอยู่      : เก็บครบ / ลูกค้าปฏิเสธ / ขอเมนู
+บอตดูแลอยู่      -> รอคนมารับ        : ขอคุยกับคน / ตอบไม่ได้ / ถึงเพดานโมเดล
+กำลังเก็บข้อมูล -> รอคนมารับ        : ขอคุยกับคน
+รอคนมารับ        -> คนกำลังคุย      : แอดมินกด "ขอคุยเอง"
+รอคนมารับ        -> บอตดูแลอยู่      : Facebook คืนสายกลับมา
+คนกำลังคุย      -> บอตดูแลอยู่      : แอดมินกด "คืนให้บอต"
+บอตดูแลอยู่      -> ปิดแล้ว          : สงวนไว้ ยังไม่ใช้ในรอบนี้
+        </pre></details>
+        <p class="readnote">
+          <strong>อ่านยังไง:</strong> แชทหนึ่งห้องอยู่ได้ทีละสถานะเดียวเท่านั้น และสถานะเป็นตัวตัดสินว่าบอตจะพูดหรือจะเงียบ
+          สองสถานะที่บอตเงียบสนิทคือ "รอคนมารับ" กับ "คนกำลังคุย"
+        </p>
+      </div>
+
+      <h4>ตารางเปลี่ยนสถานะ — อะไรทำให้ย้าย และเกิดผลอะไรตามมา</h4>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>เหตุการณ์</th><th class="nowrap">จาก</th><th class="nowrap">ไป</th><th>ผลที่ตามมา</th></tr></thead>
+          <tbody>
+            <tr><td>ลูกค้าแสดงความสนใจ หรือกดปุ่ม "จัดอบรมในองค์กร"</td><td class="nowrap">บอตดูแลอยู่</td><td class="nowrap">กำลังเก็บข้อมูล</td><td>เริ่มที่ขั้น "ชื่อ" · บันทึกเวลายินยอม · ส่งข้อความขออนุญาต</td></tr>
+            <tr><td>เก็บข้อมูลครบ 3 ขั้น</td><td class="nowrap">กำลังเก็บข้อมูล</td><td class="nowrap">บอตดูแลอยู่</td><td>บันทึกลงรายชื่อผู้สนใจ · ล้างร่าง · ตั้งธงให้แอดมินเห็น</td></tr>
+            <tr><td>ลูกค้าปฏิเสธให้ข้อมูล</td><td class="nowrap">กำลังเก็บข้อมูล</td><td class="nowrap">บอตดูแลอยู่</td><td>ไม่บันทึกอะไรเลย ตอบว่าไม่เก็บข้อมูล</td></tr>
+            <tr><td>ขอคุยกับคน / บอตตอบไม่ได้ / ถึงเพดานโมเดล</td><td class="nowrap">ทุกสถานะที่บอตทำงาน</td><td class="nowrap">รอคนมารับ</td><td>โอนแชทเข้ากล่องข้อความเพจ · บันทึกประวัติการโอน</td></tr>
+            <tr><td>แอดมินกด "ขอคุยเอง"</td><td class="nowrap">รอคนมารับ / บอตดูแลอยู่</td><td class="nowrap">คนกำลังคุย</td><td>ดึงสิทธิ์คุยกลับมา · บันทึกประวัติ</td></tr>
+            <tr><td>แอดมินกด "คืนให้บอต"</td><td class="nowrap">คนกำลังคุย</td><td class="nowrap">บอตดูแลอยู่</td><td>บันทึกประวัติการคืนสาย</td></tr>
+            <tr><td>เฟซบุ๊กคืนสายกลับมาที่ระบบเอง</td><td class="nowrap">รอคนมารับ / คนกำลังคุย</td><td class="nowrap">บอตดูแลอยู่</td><td>บันทึกประวัติการคืนสายอัตโนมัติ</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>สมองไฮบริด — ลำดับการตัดสินใจ 7 ชั้น</h4>
+      <p class="readnote">
+        ทุกข้อความวิ่งจากชั้น 0 ลงล่าง เจอชั้นไหนตอบได้ก็หยุดตรงนั้น
+        ชั้นที่มีค่าใช้จ่ายมีแค่ชั้นเดียว — นี่คือเหตุผลที่ระบบเรียงลำดับแบบนี้
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th class="nowrap">ชั้น</th><th>ทำอะไร</th><th class="nowrap">ค่าใช้จ่าย</th></tr></thead>
+          <tbody>
+            <tr><td class="nowrap">0</td><td>กันข้อความซ้ำ</td><td class="nowrap">ไม่มี</td></tr>
+            <tr><td class="nowrap">1</td><td>คนกำลังคุย หรือปิดสวิตช์บอต → เงียบ</td><td class="nowrap">ไม่มี</td></tr>
+            <tr><td class="nowrap">2</td><td>ปุ่มที่กด และคำสั่งพิเศษ เช่น "ขอคุยกับคน"</td><td class="nowrap">ไม่มี</td></tr>
+            <tr><td class="nowrap">3</td><td>กำลังเก็บข้อมูลผู้สนใจ → ถามขั้นถัดไป</td><td class="nowrap">ไม่มี</td></tr>
+            <tr><td class="nowrap">4</td><td>กติกาคำสำคัญของแอดมิน</td><td class="nowrap">ไม่มี</td></tr>
+            <tr><td class="nowrap">5</td><td>คำถามที่ถามบ่อย</td><td class="nowrap">ค้นในฐานข้อมูล</td></tr>
+            <tr><td class="nowrap">6</td><td>ฐานความรู้ + ให้ AI เรียบเรียง</td><td class="nowrap"><strong>เรียกโมเดล</strong></td></tr>
+            <tr><td class="nowrap">7</td><td>ตอบไม่ได้ → เสนอส่งต่อให้คน</td><td class="nowrap">ไม่มี</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ══════════════════════ D · MOCK ══════════════════════ -->
+    <section class="band" id="d">
+      <span class="sec-no">ส่วน D</span>
+      <h2 class="sec">หน้าจอจำลอง 9 หน้า + มุมมองลูกค้า</h2>
+      <div class="callout">
+        <p class="h">อ่านภาพเหล่านี้ยังไง</p>
+        <p style="margin:0">
+          ทุกภาพด้านล่างวาดขึ้นใหม่ด้วยโค้ดหน้าเว็บ ไม่ใช่ภาพถ่ายจากระบบจริง
+          <strong>ข้อความ ชื่อคน และตัวเลขทั้งหมดเป็นตัวอย่างสมมุติ</strong> (มีป้าย "ตัวอย่าง" กำกับทุกภาพ)
+          ส่วนที่เป็นราคา วันอบรม หรือเงื่อนไข จะแสดงเป็นช่องว่าง
+          <span class="placeholder">[กรอกเอง]</span> เพราะยังไม่มีของจริงจากต้น
+        </p>
+      </div>
+
+      <!-- 1 login -->
+      <h3 id="d1">1 · เข้าสู่ระบบ</h3>
+      <figure class="mock">
+        <div class="mockwin">
+          <div class="chrome"><span class="dots"><i></i><i></i><i></i></span><span class="url">tonpalearn-chat.vercel.app/admin/login</span><span class="sample">ตัวอย่าง</span></div>
+          <div class="screen" style="padding:2.2rem 1rem; display:flex; justify-content:center">
+            <div class="mcard" style="max-width:300px; width:100%; padding:1.3rem 1.2rem">
+              <p class="tiny" style="letter-spacing:.16em">TONPALEARN</p>
+              <p style="font-size:1.1rem; font-weight:600; margin:.1rem 0 1rem">หน้าผู้ดูแลแชทบอต</p>
+              <span class="flabel">รหัสผ่าน</span>
+              <div class="finput filled" style="letter-spacing:.25em">••••••••••••</div>
+              <div class="btn gold" style="display:block; text-align:center; margin-top:1rem; padding:.35rem">เข้าสู่ระบบ</div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <b>ใช้ทำอะไร:</b> ประตูเดียวเข้าหลังบ้าน ใช้รหัสผ่านร่วมของทีม ไม่มีระบบสมาชิกรายคนในรอบนี้
+          <b>ปุ่มสำคัญ:</b> "เข้าสู่ระบบ" — ถ้าเดารหัสถี่เกิน 10 ครั้งใน 5 นาที ระบบจะปิดรับชั่วคราวจากเลขที่อยู่นั้น
+          และคุกกี้ที่ได้จะหมดอายุใน 12 ชั่วโมง
+        </figcaption>
+      </figure>
+
+      <!-- 2 dashboard -->
+      <h3 id="d2">2 · ภาพรวม</h3>
+      <figure class="mock">
+        <div class="mockwin">
+          <div class="chrome"><span class="dots"><i></i><i></i><i></i></span><span class="url">tonpalearn-chat.vercel.app/admin</span><span class="sample">ตัวอย่าง</span></div>
+          <div class="screen adm">
+            <div class="adm-side">
+              <div class="adm-brand"><div class="k">TONPALEARN</div><div class="n">ผู้ช่วยตอบแชท</div></div>
+              <div class="adm-nav">
+                <b>ภาพรวม</b><span>กล่องข้อความ</span><span>คำถามที่ถามบ่อย</span><span>กติกา</span><span>ฐานความรู้</span><span>ผู้สนใจ</span><span>ตั้งค่า</span>
+              </div>
+              <div class="adm-logout">ออกจากระบบ</div>
+            </div>
+            <div class="adm-main">
+              <div class="adm-h1">ภาพรวม</div>
+              <div class="adm-sub">ตัวเลขทั้งหมดในภาพนี้เป็นตัวอย่างสมมุติ</div>
+
+              <div class="mgrid c4" style="margin-bottom:.7rem">
+                <div class="mcard metric"><div class="l">ข้อความวันนี้</div><div class="v">42</div></div>
+                <div class="mcard metric"><div class="l">แชทที่ยังไม่ได้อ่าน</div><div class="v">3</div></div>
+                <div class="mcard metric"><div class="l">ผู้สนใจใหม่ 7 วัน</div><div class="v">6</div></div>
+                <div class="mcard metric"><div class="l">เรียกโมเดลวันนี้</div><div class="v">18 / 500</div></div>
+              </div>
+
+              <div class="mcard" style="margin-bottom:.7rem">
+                <div style="font-weight:600">คำตอบมาจากไหนบ้าง</div>
+                <div class="tiny" style="margin-bottom:.5rem">ย้อนหลัง 7 วัน — ยิ่งกติกากับคำถามที่ถามบ่อยตอบได้มาก ค่าโมเดลยิ่งถูก</div>
+                <div class="mixbar">
+                  <div style="width:38%; background:#2f7d5d"></div>
+                  <div style="width:27%; background:#b8863b"></div>
+                  <div style="width:18%; background:#2f5fb3"></div>
+                  <div style="width:11%; background:#b3382f"></div>
+                  <div style="width:6%; background:#6b5b95"></div>
+                </div>
+                <ul class="mixlist" style="padding-left:0">
+                  <li><span class="sw" style="background:#2f7d5d"></span>กติกา<span class="push tiny">34 ครั้ง (38%)</span></li>
+                  <li><span class="sw" style="background:#b8863b"></span>คำถามที่ถามบ่อย<span class="push tiny">24 ครั้ง (27%)</span></li>
+                  <li><span class="sw" style="background:#2f5fb3"></span>ฐานความรู้ + AI<span class="push tiny">16 ครั้ง (18%)</span></li>
+                  <li><span class="sw" style="background:#b3382f"></span>โอนหาคน<span class="push tiny">10 ครั้ง (11%)</span></li>
+                  <li><span class="sw" style="background:#6b5b95"></span>แอดมินพิมพ์เอง<span class="push tiny">5 ครั้ง (6%)</span></li>
+                </ul>
+              </div>
+
+              <div class="row" style="margin-bottom:.45rem"><span style="font-weight:600">บทสนทนาล่าสุด</span><span class="btn push">ดูทั้งหมด</span></div>
+              <div class="stack">
+                <div class="mcard">
+                  <div class="row tight"><span style="font-weight:600">คุณเอ (ตัวอย่าง)</span><span class="badge" style="color:var(--danger)">รอคนมารับ</span><span class="dot-unread">● ยังไม่ได้อ่าน</span><span class="push tiny">5 ส.ค. 14:22</span></div>
+                  <div class="tiny">ขอคุยกับคนหน่อยครับ อยากถามเรื่องใบเสนอราคา</div>
+                </div>
+                <div class="mcard">
+                  <div class="row tight"><span style="font-weight:600">คุณบี (ตัวอย่าง)</span><span class="badge" style="color:var(--warn)">กำลังเก็บข้อมูล</span><span class="dot-unread">● ยังไม่ได้อ่าน</span><span class="push tiny">5 ส.ค. 14:05</span></div>
+                  <div class="tiny">0812345678</div>
+                </div>
+                <div class="mcard">
+                  <div class="row tight"><span style="font-weight:600">คุณซี (ตัวอย่าง)</span><span class="badge" style="color:var(--ok)">บอตดูแลอยู่</span><span class="push tiny">5 ส.ค. 13:47</span></div>
+                  <div class="tiny">เรียนออนไลน์ได้ไหมครับ มีอัดวิดีโอย้อนหลังหรือเปล่า</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <b>ใช้ทำอะไร:</b> หน้าแรกหลังล็อกอิน ดูใน 10 วินาทีว่าวันนี้เกิดอะไรขึ้นบ้าง
+          การ์ด 4 ใบบอกปริมาณงาน ส่วน <b>แถบ "คำตอบมาจากไหนบ้าง" คือหน้าปัดที่ใช้จูนระบบ</b> —
+          ถ้าแถบสีแดง (โอนหาคน) โตผิดปกติ แปลว่าเนื้อหายังไม่พอหรือเกณฑ์ความคล้ายตั้งสูงไป
+          ถ้าแถบน้ำเงิน (ฐานความรู้ + AI) โต แปลว่ากำลังจ่ายค่าโมเดลกับคำถามที่ควรย้ายไปเป็นคำถามที่ถามบ่อยได้แล้ว
+          <b>ปุ่มสำคัญ:</b> กดที่รายการแชทเพื่อเข้าไปดูบทสนทนาเต็ม
+        </figcaption>
+      </figure>
+
+      <!-- 3 inbox -->
+      <h3 id="d3">3 · กล่องข้อความ</h3>
+      <figure class="mock">
+        <div class="mockwin">
+          <div class="chrome"><span class="dots"><i></i><i></i><i></i></span><span class="url">tonpalearn-chat.vercel.app/admin/inbox</span><span class="sample">ตัวอย่าง</span></div>
+          <div class="screen adm">
+            <div class="adm-side">
+              <div class="adm-brand"><div class="k">TONPALEARN</div><div class="n">ผู้ช่วยตอบแชท</div></div>
+              <div class="adm-nav"><span>ภาพรวม</span><b>กล่องข้อความ</b><span>คำถามที่ถามบ่อย</span><span>กติกา</span><span>ฐานความรู้</span><span>ผู้สนใจ</span><span>ตั้งค่า</span></div>
+              <div class="adm-logout">ออกจากระบบ</div>
+            </div>
+            <div class="adm-main">
+              <div class="row"><span class="adm-h1">กล่องข้อความ</span><span class="btn push">โหลดใหม่</span></div>
+              <div class="row tight" style="margin:.6rem 0 .7rem">
+                <span class="btn gold">ทั้งหมด</span><span class="btn">บอตดูแลอยู่</span><span class="btn">กำลังเก็บข้อมูล</span><span class="btn">รอคนมารับ</span><span class="btn">คนกำลังคุย</span>
+              </div>
+              <div class="stack">
+                <div class="mcard">
+                  <div class="row tight"><span style="font-weight:600">คุณเอ (ตัวอย่าง)</span><span class="badge" style="color:var(--danger)">รอคนมารับ</span><span class="dot-unread">● ยังไม่ได้อ่าน</span><span class="push tiny">5 ส.ค. 14:22</span></div>
+                  <div class="tiny">ขอคุยกับคนหน่อยครับ อยากถามเรื่องใบเสนอราคาให้บริษัท</div>
+                </div>
+                <div class="mcard">
+                  <div class="row tight"><span style="font-weight:600">คุณบี (ตัวอย่าง)</span><span class="badge" style="color:var(--warn)">กำลังเก็บข้อมูล</span><span class="dot-unread">● ยังไม่ได้อ่าน</span><span class="push tiny">5 ส.ค. 14:05</span></div>
+                  <div class="tiny">0812345678</div>
+                </div>
+                <div class="mcard">
+                  <div class="row tight"><span style="font-weight:600">คุณซี (ตัวอย่าง)</span><span class="badge" style="color:var(--ok)">บอตดูแลอยู่</span><span class="push tiny">5 ส.ค. 13:47</span></div>
+                  <div class="tiny">เรียนออนไลน์ได้ไหมครับ มีอัดวิดีโอย้อนหลังหรือเปล่า</div>
+                </div>
+                <div class="mcard">
+                  <div class="row tight"><span style="font-weight:600">คุณดี (ตัวอย่าง)</span><span class="badge" style="color:var(--info)">คนกำลังคุย</span><span class="push tiny">5 ส.ค. 11:30</span></div>
+                  <div class="tiny">โอเคครับ เดี๋ยวรอใบเสนอราคานะครับ</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <b>ใช้ทำอะไร:</b> รายการแชททั้งหมดในที่เดียว กรองตามสถานะได้
+          <b>ปุ่มสำคัญ:</b> ปุ่มกรอง "รอคนมารับ" คือปุ่มที่ควรกดก่อนเสมอในแต่ละวัน เพราะนั่นคือคนที่ขอคุยกับคนจริงแล้วยังไม่มีใครไปรับ
+          จุดสีทอง "● ยังไม่ได้อ่าน" คือธงที่ระบบตั้งให้เองเมื่อมีข้อความเข้ามาระหว่างที่บอตเงียบ
+        </figcaption>
+      </figure>
+
+      <!-- 4 conversation -->
+      <h3 id="d4">4 · หน้าต่างสนทนา</h3>
+      <figure class="mock">
+        <div class="mockwin">
+          <div class="chrome"><span class="dots"><i></i><i></i><i></i></span><span class="url">tonpalearn-chat.vercel.app/admin/inbox/1a2b3c</span><span class="sample">ตัวอย่าง</span></div>
+          <div class="screen adm">
+            <div class="adm-side">
+              <div class="adm-brand"><div class="k">TONPALEARN</div><div class="n">ผู้ช่วยตอบแชท</div></div>
+              <div class="adm-nav"><span>ภาพรวม</span><b>กล่องข้อความ</b><span>คำถามที่ถามบ่อย</span><span>กติกา</span><span>ฐานความรู้</span><span>ผู้สนใจ</span><span>ตั้งค่า</span></div>
+              <div class="adm-logout">ออกจากระบบ</div>
+            </div>
+            <div class="adm-main">
+              <div class="row" style="margin-bottom:.6rem">
+                <span class="btn">← กลับ</span>
+                <span style="font-weight:600">คุณเอ (ตัวอย่าง)</span>
+                <span class="badge" style="color:var(--danger)">รอคนมารับ</span>
+                <span class="btn gold push">ขอคุยเอง</span>
+              </div>
+
+              <div class="mcard" style="border-color:var(--warn); margin-bottom:.7rem">
+                <div style="color:var(--warn); font-weight:600; font-size:.82rem">เลย 24 ชั่วโมงนับจากข้อความล่าสุดของลูกค้าแล้ว</div>
+                <div class="tiny">
+                  เฟซบุ๊กจำกัดว่าเลยช่วงนี้จะส่งข้อความธรรมดาไม่ได้ ระบบจะลองส่งแบบ "เจ้าหน้าที่ติดต่อกลับ" ให้
+                  แต่ถ้าเพจยังไม่ได้รับสิทธิ์นั้นจะส่งไม่ผ่าน — แนะนำให้ติดต่อทางเบอร์หรืออีเมลที่เก็บไว้ในหน้าผู้สนใจแทนครับ
+                </div>
+              </div>
+
+              <div class="mcard" style="margin-bottom:.7rem">
+                <div class="bubbles">
+                  <div class="bwrap"><div class="bub">
+                    <div>สวัสดีครับ สนใจคอร์สครับ</div>
+                    <div class="bmeta"><span>ลูกค้า</span><span class="push">4 ส.ค. 09:12</span></div>
+                  </div></div>
+                  <div class="bwrap out"><div class="bub">
+                    <div>สนใจเรื่องไหนเป็นพิเศษครับ เลือกจากปุ่มด้านล่างได้เลยครับ</div>
+                    <div class="bmeta"><span>บอต</span><span>กติกา: สนใจ</span><span class="push">4 ส.ค. 09:12</span></div>
+                  </div></div>
+                  <div class="bwrap"><div class="bub">
+                    <div>รับจัดอบรมให้บริษัทไหมครับ ขอใบเสนอราคาด้วย</div>
+                    <div class="bmeta"><span>ลูกค้า</span><span class="push">4 ส.ค. 09:14</span></div>
+                  </div></div>
+                  <div class="bwrap out"><div class="bub">
+                    <div>รับจัดอบรมในองค์กรครับ ขอเก็บข้อมูลให้ทีมงานติดต่อกลับนะครับ</div>
+                    <div class="bmeta"><span>บอต</span><span>ฐานความรู้ + AI</span><span class="push">4 ส.ค. 09:14</span></div>
+                  </div></div>
+                  <div class="bwrap"><div class="bub">
+                    <div>ขอคุยกับคนหน่อยครับ อยากถามเรื่องใบเสนอราคาให้บริษัท</div>
+                    <div class="bmeta"><span>ลูกค้า</span><span class="push">5 ส.ค. 14:22</span></div>
+                  </div></div>
+                  <div class="bwrap out"><div class="bub">
+                    <div>กำลังเรียกทีมงานมาคุยต่อให้ครับ สักครู่นะครับ</div>
+                    <div class="bmeta"><span>บอต</span><span>โอนหาคน</span><span class="push">5 ส.ค. 14:22</span></div>
+                  </div></div>
+                </div>
+              </div>
+
+              <div class="finput" style="min-height:3rem">พิมพ์ข้อความตอบลูกค้า...</div>
+              <div class="row" style="margin-top:.5rem"><span class="btn gold">ส่งข้อความ</span><span class="tiny">ตอบตอนนี้ได้ แต่ถ้าจะคุยเองยาว ๆ กด "ขอคุยเอง" ก่อนครับ</span></div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <b>ใช้ทำอะไร:</b> อ่านบทสนทนาเต็มและตอบเองได้จากหน้านี้ ฟองซ้ายคือลูกค้า ฟองขวาคือฝั่งเพจ
+          <b>ป้ายใต้ฟองขวาสำคัญที่สุด</b> — มันบอกว่าคำตอบนั้นมาจากไหน (กติกา / คำถามที่ถามบ่อย / ฐานความรู้ + AI / โอนหาคน / แอดมินพิมพ์เอง)
+          ถ้าเจอคำตอบที่ไม่ดี ให้ดูป้ายแล้วไปแก้ที่ต้นทางนั้นตรง ๆ
+          <b>ปุ่มสำคัญ:</b> "ขอคุยเอง" ทำให้บอตเงียบทันที และ "คืนให้บอต" (ปุ่มจะเปลี่ยนเป็นอันนี้เมื่อคุยเสร็จ) ทำให้บอตกลับมาทำงาน
+          ส่วนแถบสีส้มด้านบนจะโผล่เฉพาะตอนพ้นหน้าต่าง 24 ชั่วโมงของเฟซบุ๊กแล้ว
+        </figcaption>
+      </figure>
+
+      <!-- 5 faq -->
+      <h3 id="d5">5 · คำถามที่ถามบ่อย</h3>
+      <figure class="mock">
+        <div class="mockwin">
+          <div class="chrome"><span class="dots"><i></i><i></i><i></i></span><span class="url">tonpalearn-chat.vercel.app/admin/faq</span><span class="sample">ตัวอย่าง</span></div>
+          <div class="screen adm">
+            <div class="adm-side">
+              <div class="adm-brand"><div class="k">TONPALEARN</div><div class="n">ผู้ช่วยตอบแชท</div></div>
+              <div class="adm-nav"><span>ภาพรวม</span><span>กล่องข้อความ</span><b>คำถามที่ถามบ่อย</b><span>กติกา</span><span>ฐานความรู้</span><span>ผู้สนใจ</span><span>ตั้งค่า</span></div>
+              <div class="adm-logout">ออกจากระบบ</div>
+            </div>
+            <div class="adm-main">
+              <div class="adm-h1">คำถามที่ถามบ่อย</div>
+              <div class="adm-sub">บอตหยิบคำตอบตรงนี้ไปตอบก่อนเรียกโมเดล — ยิ่งกรอกครบ ยิ่งตอบไว และค่าใช้จ่ายยิ่งถูก</div>
+
+              <div class="mcard" style="border-color:var(--warn); margin-bottom:.7rem">
+                <div style="color:var(--warn); font-weight:600; font-size:.82rem">ยังมี 5 ข้อที่เป็นโครงตัวอย่าง (ขึ้นต้นด้วย [กรอกเอง])</div>
+                <div class="tiny">บอตจะไม่เอาคำตอบเหล่านี้ไปตอบลูกค้า แต่จะโยนให้คนตอบแทนทุกครั้ง — กรอกของจริงก่อนเปิดใช้ครับ</div>
+              </div>
+
+              <div class="mcard" style="margin-bottom:.7rem">
+                <div style="font-weight:600; margin-bottom:.4rem">เพิ่มคำถามใหม่</div>
+                <span class="flabel">คำถาม</span>
+                <div class="finput">เช่น คอร์สนี้ราคาเท่าไร</div>
+                <span class="flabel" style="margin-top:.45rem">คำตอบ</span>
+                <div class="finput" style="min-height:2.6rem">ตอบเป็นภาษาที่บอตจะพูดกับลูกค้าได้เลย</div>
+                <span class="flabel" style="margin-top:.45rem">คำสำคัญ</span>
+                <span class="fhint">คั่นด้วยจุลภาค เช่น ราคา, เท่าไร, ค่าเรียน</span>
+                <div class="finput">&nbsp;</div>
+                <div class="btn gold" style="margin-top:.55rem">เพิ่มคำถาม</div>
+              </div>
+
+              <div class="stack">
+                <div class="mcard">
+                  <div class="row tight"><span style="font-weight:600">คอร์สนี้ราคาเท่าไร</span><span class="badge" style="background:var(--chip); color:var(--chip-text)">ยังไม่ได้กรอก</span><span class="push tiny">ใช้ไป 0 ครั้ง</span></div>
+                  <div class="tiny"><span class="placeholder">[กรอกเอง]</span> ใส่ราคาและรอบอบรมจริงตรงนี้</div>
+                  <div class="tiny">คำสำคัญ: ราคา · เท่าไร · ค่าเรียน</div>
+                  <div class="row tight" style="margin-top:.35rem"><span class="btn">แก้ไข</span><span class="btn">ปิดใช้งาน</span><span class="btn">ลบ</span></div>
+                </div>
+                <div class="mcard">
+                  <div class="row tight"><span style="font-weight:600">รับจัดอบรมในองค์กรไหม</span><span class="push tiny">ใช้ไป 12 ครั้ง</span></div>
+                  <div class="tiny">รับครับ ทีมงานจะขอข้อมูลเบื้องต้นแล้วส่งใบเสนอราคาให้ (ข้อความตัวอย่าง)</div>
+                  <div class="tiny">คำสำคัญ: องค์กร · ในบริษัท · inhouse · ใบเสนอราคา</div>
+                  <div class="row tight" style="margin-top:.35rem"><span class="btn">แก้ไข</span><span class="btn">ปิดใช้งาน</span><span class="btn">ลบ</span></div>
+                </div>
+                <div class="mcard">
+                  <div class="row tight"><span style="font-weight:600">อบรมวันไหนบ้าง</span><span class="badge" style="background:var(--chip); color:var(--chip-text)">ยังไม่ได้กรอก</span><span class="push tiny">ใช้ไป 0 ครั้ง</span></div>
+                  <div class="tiny"><span class="placeholder">[กรอกเอง]</span> ใส่วันอบรมรอบถัดไปตรงนี้</div>
+                  <div class="row tight" style="margin-top:.35rem"><span class="btn">แก้ไข</span><span class="btn">ปิดใช้งาน</span><span class="btn">ลบ</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <b>ใช้ทำอะไร:</b> ที่ที่ต้นแก้คำตอบเองได้โดยไม่ต้องรอโปรแกรมเมอร์ — แก้เสร็จบอตใช้ทันทีในข้อความถัดไป
+          <b>ป้าย "ยังไม่ได้กรอก" คือหัวใจของหน้านี้:</b> ข้อไหนมีป้ายนี้ บอตจะไม่เอาไปตอบลูกค้าเด็ดขาด แต่จะโยนให้คนแทน
+          — เป็นกันชนไม่ให้ระบบพูดตัวเลขที่ไม่มีใครยืนยัน
+          <b>ปุ่มสำคัญ:</b> "เพิ่มคำถาม" และ "แก้ไข" ส่วน "คำสำคัญ" ช่วยให้ค้นเจอง่ายขึ้นเวลาลูกค้าพิมพ์ไม่เหมือนคำถามเป๊ะ ๆ
+        </figcaption>
+      </figure>
+
+      <!-- 6 rules -->
+      <h3 id="d6">6 · กติกา</h3>
+      <figure class="mock">
+        <div class="mockwin">
+          <div class="chrome"><span class="dots"><i></i><i></i><i></i></span><span class="url">tonpalearn-chat.vercel.app/admin/rules</span><span class="sample">ตัวอย่าง</span></div>
+          <div class="screen adm">
+            <div class="adm-side">
+              <div class="adm-brand"><div class="k">TONPALEARN</div><div class="n">ผู้ช่วยตอบแชท</div></div>
+              <div class="adm-nav"><span>ภาพรวม</span><span>กล่องข้อความ</span><span>คำถามที่ถามบ่อย</span><b>กติกา</b><span>ฐานความรู้</span><span>ผู้สนใจ</span><span>ตั้งค่า</span></div>
+              <div class="adm-logout">ออกจากระบบ</div>
+            </div>
+            <div class="adm-main">
+              <div class="adm-h1">กติกา</div>
+              <div class="adm-sub">บอตไล่ตรวจจากเลขลำดับน้อยไปมาก เจอข้อแรกที่ตรงแล้วหยุด — ตรวจก่อนคำถามที่ถามบ่อยและก่อนเรียกโมเดลเสมอ</div>
+
+              <div class="mcard" style="margin-bottom:.7rem">
+                <div style="font-weight:600">ทดลองพิมพ์ข้อความ</div>
+                <div class="tiny" style="margin-bottom:.35rem">พิมพ์เหมือนที่ลูกค้าจะพิมพ์ แล้วดูว่ากติกาข้อไหนจะโดนจับ</div>
+                <div class="finput filled">สนใจคอร์สครับ ราคาเท่าไร</div>
+                <div class="btn" style="margin-top:.4rem">ทดลอง</div>
+                <div style="background:var(--accent-weak); border-radius:8px; padding:.35rem .6rem; margin-top:.45rem; font-size:.8rem">
+                  จับได้ที่กติกา <b>#20 สนใจ</b> (มีคำนี้อยู่ในข้อความ: "สนใจ") → เริ่มเก็บข้อมูลผู้สนใจ · ไม่ลงไปถึงคำถามที่ถามบ่อยและไม่เรียกโมเดล
+                </div>
+              </div>
+
+              <div class="mcard" style="margin-bottom:.7rem">
+                <div style="font-weight:600; margin-bottom:.4rem">เพิ่มกติกาใหม่</div>
+                <span class="flabel">ชื่อกติกา</span>
+                <span class="fhint">ตั้งให้รู้เรื่อง เช่น "ขอใบเสนอราคา"</span>
+                <div class="finput">&nbsp;</div>
+                <div class="mgrid c2" style="margin-top:.45rem">
+                  <div><span class="flabel">ชนิดการจับคู่</span><div class="finput filled">มีคำนี้อยู่ในข้อความ ▾</div></div>
+                  <div><span class="flabel">ทำอะไรเมื่อจับได้</span><div class="finput filled">ตอบข้อความ ▾</div></div>
+                </div>
+                <span class="flabel" style="margin-top:.45rem">คำหรือรูปแบบที่จะจับ</span>
+                <div class="finput">เช่น ใบเสนอราคา</div>
+                <span class="flabel" style="margin-top:.45rem">ลำดับความสำคัญ</span>
+                <span class="fhint">เลขน้อยตรวจก่อน (ค่าเริ่มต้น 100)</span>
+                <div class="finput filled">100</div>
+                <div class="btn gold" style="margin-top:.55rem">เพิ่มกติกา</div>
+              </div>
+
+              <div class="stack">
+                <div class="mcard">
+                  <div class="row tight"><span class="badge">#10</span><span style="font-weight:600">ขอคุยกับคน</span><span class="push tiny">โดนจับ 8 ครั้ง</span></div>
+                  <div class="tiny">มีคำนี้อยู่ในข้อความ: <code>คุยกับคน</code> → โอนหาคน</div>
+                  <div class="row tight" style="margin-top:.3rem"><span class="btn">ปิดใช้งาน</span><span class="btn">ลบ</span></div>
+                </div>
+                <div class="mcard">
+                  <div class="row tight"><span class="badge">#20</span><span style="font-weight:600">สนใจ</span><span class="push tiny">โดนจับ 34 ครั้ง</span></div>
+                  <div class="tiny">มีคำนี้อยู่ในข้อความ: <code>สนใจ</code> → เริ่มเก็บข้อมูลผู้สนใจ</div>
+                  <div class="row tight" style="margin-top:.3rem"><span class="btn">ปิดใช้งาน</span><span class="btn">ลบ</span></div>
+                </div>
+                <div class="mcard">
+                  <div class="row tight"><span class="badge">#30</span><span style="font-weight:600">ทักทาย</span><span class="push tiny">โดนจับ 21 ครั้ง</span></div>
+                  <div class="tiny">มีคำนี้อยู่ในข้อความ: <code>สวัสดี</code> → แสดงเมนู</div>
+                  <div class="row tight" style="margin-top:.3rem"><span class="btn">ปิดใช้งาน</span><span class="btn">ลบ</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <b>ใช้ทำอะไร:</b> ตั้งคำดักและบอกว่าเจอแล้วให้ทำอะไร (ตอบข้อความ / เริ่มเก็บข้อมูล / โอนหาคน / แสดงเมนู)
+          เลขลำดับเล็กตรวจก่อน จึงใช้เลขเป็นตัวจัดว่าอะไรควรชนะอะไร
+          <b>ช่อง "ทดลองพิมพ์ข้อความ" คือปุ่มที่ควรใช้ทุกครั้งก่อนบันทึกกติกาใหม่</b> —
+          พิมพ์เหมือนที่ลูกค้าจะพิมพ์แล้วดูว่าโดนจับข้อไหน จะได้ไม่ต้องเดาว่ากติกาชนกันเองหรือเปล่า
+        </figcaption>
+      </figure>
+
+      <!-- 7 kb -->
+      <h3 id="d7">7 · ฐานความรู้</h3>
+      <figure class="mock">
+        <div class="mockwin">
+          <div class="chrome"><span class="dots"><i></i><i></i><i></i></span><span class="url">tonpalearn-chat.vercel.app/admin/kb</span><span class="sample">ตัวอย่าง</span></div>
+          <div class="screen adm">
+            <div class="adm-side">
+              <div class="adm-brand"><div class="k">TONPALEARN</div><div class="n">ผู้ช่วยตอบแชท</div></div>
+              <div class="adm-nav"><span>ภาพรวม</span><span>กล่องข้อความ</span><span>คำถามที่ถามบ่อย</span><span>กติกา</span><b>ฐานความรู้</b><span>ผู้สนใจ</span><span>ตั้งค่า</span></div>
+              <div class="adm-logout">ออกจากระบบ</div>
+            </div>
+            <div class="adm-main">
+              <div class="adm-h1">ฐานความรู้</div>
+              <div class="adm-sub">วางเนื้อหายาว ๆ ไว้ตรงนี้ ระบบจะตัดเป็นท่อนให้บอตค้นหาแล้วเอาไปเรียบเรียงตอบ — บอตอ้างได้เฉพาะเนื้อหาที่มีอยู่จริงในนี้ ไม่แต่งเพิ่มเอง</div>
+
+              <div class="mcard" style="margin-bottom:.7rem">
+                <div style="font-weight:600; margin-bottom:.4rem">เพิ่มเอกสาร</div>
+                <span class="flabel">ชื่อเอกสาร</span>
+                <div class="finput">เช่น รายละเอียดคอร์ส OPB Builder</div>
+                <span class="flabel" style="margin-top:.45rem">ที่มา</span>
+                <span class="fhint">ใส่หรือไม่ใส่ก็ได้ เช่น ชื่อไฟล์ หรือลิงก์</span>
+                <div class="finput">&nbsp;</div>
+                <span class="flabel" style="margin-top:.45rem">เนื้อหา</span>
+                <div class="finput" style="min-height:5rem">วางเนื้อหาทั้งหมดได้เลย ระบบจะตัดท่อนให้เอง</div>
+                <div class="btn gold" style="margin-top:.55rem">บันทึกเอกสาร</div>
+                <div class="tiny" style="color:var(--ok); margin-top:.3rem">บันทึกแล้ว ตัดเป็น 12 ท่อนให้บอตค้นหา</div>
+              </div>
+
+              <div class="stack">
+                <div class="mcard">
+                  <div class="row tight"><span style="font-weight:600">รายละเอียดคอร์ส (ตัวอย่าง)</span><span class="push tiny">12 ท่อน · 5 ส.ค. 10:20</span></div>
+                  <div class="tiny">ที่มา: เอกสารหลักสูตรฉบับล่าสุด</div>
+                  <div class="row tight" style="margin-top:.3rem"><span class="btn">ปิดใช้งาน</span><span class="btn">ลบ</span></div>
+                </div>
+                <div class="mcard">
+                  <div class="row tight"><span style="font-weight:600">คำถามเรื่องการจัดอบรมในองค์กร (ตัวอย่าง)</span><span class="push tiny">7 ท่อน · 4 ส.ค. 16:02</span></div>
+                  <div class="row tight" style="margin-top:.3rem"><span class="btn">ปิดใช้งาน</span><span class="btn">ลบ</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <b>ใช้ทำอะไร:</b> คลังเนื้อหาที่ AI ได้รับอนุญาตให้อ้างถึง วางข้อความยาวเข้ามาได้เลย ระบบตัดเป็นท่อนย่อยให้เอง
+          <b>เข้าใจง่าย ๆ คือ:</b> คำถามที่ถามบ่อย = คำตอบสำเร็จรูปคำต่อคำ · ฐานความรู้ = วัตถุดิบให้ AI เรียบเรียงเอง
+          อะไรที่เป็นตัวเลขและต้องเป๊ะ ควรอยู่ในคำถามที่ถามบ่อย ไม่ใช่ฐานความรู้
+          <b>ปุ่มสำคัญ:</b> "ปิดใช้งาน" ใช้เมื่อเนื้อหาล้าสมัย — ปิดแล้วบอตจะไม่หยิบไปตอบ โดยไม่ต้องลบทิ้ง
+        </figcaption>
+      </figure>
+
+      <!-- 8 leads -->
+      <h3 id="d8">8 · ผู้สนใจ</h3>
+      <figure class="mock">
+        <div class="mockwin">
+          <div class="chrome"><span class="dots"><i></i><i></i><i></i></span><span class="url">tonpalearn-chat.vercel.app/admin/leads</span><span class="sample">ตัวอย่าง</span></div>
+          <div class="screen adm">
+            <div class="adm-side">
+              <div class="adm-brand"><div class="k">TONPALEARN</div><div class="n">ผู้ช่วยตอบแชท</div></div>
+              <div class="adm-nav"><span>ภาพรวม</span><span>กล่องข้อความ</span><span>คำถามที่ถามบ่อย</span><span>กติกา</span><span>ฐานความรู้</span><b>ผู้สนใจ</b><span>ตั้งค่า</span></div>
+              <div class="adm-logout">ออกจากระบบ</div>
+            </div>
+            <div class="adm-main">
+              <div class="row"><span class="adm-h1">ผู้สนใจ</span><span class="btn push">ดาวน์โหลด CSV</span></div>
+              <div class="row tight" style="margin:.6rem 0 .7rem">
+                <span class="btn gold">ทั้งหมด</span><span class="btn">ใหม่</span><span class="btn">ติดต่อแล้ว</span><span class="btn">ปิดได้</span><span class="btn">ไม่ไปต่อ</span>
+              </div>
+              <div class="stack">
+                <div class="mcard">
+                  <div class="row tight"><span style="font-weight:600">คุณเอ (ตัวอย่าง)</span><span class="badge">องค์กร</span><span class="push tiny">5 ส.ค. 14:25</span></div>
+                  <div class="mgrid c2" style="margin:.15rem 0">
+                    <div class="tiny"><span class="soft">ติดต่อ: </span>0812345678</div>
+                    <div class="tiny"><span class="soft">สนใจ: </span>อยากจัดอบรมในบริษัท</div>
+                  </div>
+                  <div class="row tight"><span class="tiny">สถานะ:</span><span class="btn gold">ใหม่</span><span class="btn">ติดต่อแล้ว</span><span class="btn">ปิดได้</span><span class="btn">ไม่ไปต่อ</span></div>
+                </div>
+                <div class="mcard">
+                  <div class="row tight"><span style="font-weight:600">คุณบี (ตัวอย่าง)</span><span class="badge">รายบุคคล</span><span class="push tiny">4 ส.ค. 20:11</span></div>
+                  <div class="mgrid c2" style="margin:.15rem 0">
+                    <div class="tiny"><span class="soft">ติดต่อ: </span>example@mail.com</div>
+                    <div class="tiny"><span class="soft">สนใจ: </span>อยากเรียนใช้ AI ทำงานประจำ</div>
+                  </div>
+                  <div class="row tight"><span class="tiny">สถานะ:</span><span class="btn">ใหม่</span><span class="btn gold">ติดต่อแล้ว</span><span class="btn">ปิดได้</span><span class="btn">ไม่ไปต่อ</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <b>ใช้ทำอะไร:</b> รายชื่อคนที่บอตเก็บข้อมูลได้ครบ พร้อมช่องทางติดต่อและสิ่งที่เขาสนใจ
+          <b>ปุ่มสำคัญ:</b> แถวปุ่มสถานะ (ใหม่ / ติดต่อแล้ว / ปิดได้ / ไม่ไปต่อ) — กดเปลี่ยนได้ทันที
+          และ "ดาวน์โหลด CSV" สำหรับเอาไปเปิดใน Excel หรือส่งต่อให้คนที่โทรตาม (ไฟล์รองรับภาษาไทยเรียบร้อย)
+          <b>ข้อควรรู้:</b> ทุกแถวในหน้านี้มีเวลาที่ลูกค้ายินยอมให้เก็บข้อมูลบันทึกไว้ด้วย
+        </figcaption>
+      </figure>
+
+      <!-- 9 settings -->
+      <h3 id="d9">9 · ตั้งค่า</h3>
+      <figure class="mock">
+        <div class="mockwin">
+          <div class="chrome"><span class="dots"><i></i><i></i><i></i></span><span class="url">tonpalearn-chat.vercel.app/admin/settings</span><span class="sample">ตัวอย่าง</span></div>
+          <div class="screen adm">
+            <div class="adm-side">
+              <div class="adm-brand"><div class="k">TONPALEARN</div><div class="n">ผู้ช่วยตอบแชท</div></div>
+              <div class="adm-nav"><span>ภาพรวม</span><span>กล่องข้อความ</span><span>คำถามที่ถามบ่อย</span><span>กติกา</span><span>ฐานความรู้</span><span>ผู้สนใจ</span><b>ตั้งค่า</b></div>
+              <div class="adm-logout">ออกจากระบบ</div>
+            </div>
+            <div class="adm-main">
+              <div class="adm-h1">ตั้งค่า</div>
+
+              <div class="mcard" style="margin:.6rem 0 .7rem">
+                <div style="font-weight:600">สวิตช์บอต</div>
+                <div class="row tight" style="margin-top:.3rem">
+                  <span style="display:inline-block; width:34px; height:19px; border-radius:999px; background:var(--accent); position:relative">
+                    <span style="position:absolute; right:2px; top:2px; width:15px; height:15px; border-radius:50%; background:#fff"></span>
+                  </span>
+                  <span class="tiny">บอตทำงานอยู่</span>
+                </div>
+                <div class="tiny" style="margin-top:.25rem">ปิดสวิตช์นี้เมื่อไร ทุกข้อความจะไม่มีการตอบอัตโนมัติเลย แต่ยังบันทึกไว้ให้อ่านย้อนหลัง</div>
+              </div>
+
+              <div class="mcard">
+                <div style="font-weight:600">ข้อความของระบบ</div>
+                <div class="tiny" style="margin-bottom:.5rem">เขียนด้วยเสียงของเพจได้เลย บอตจะใช้ข้อความเหล่านี้ตรง ๆ</div>
+                <div class="stack">
+                  <div><span class="flabel">ข้อความทักทาย</span><div class="finput filled">สวัสดีครับ อยากให้ช่วยเรื่องไหนดีครับ</div></div>
+                  <div><span class="flabel">ข้อความเมื่อบอตตอบไม่ได้</span><div class="finput filled">ขอส่งต่อให้ทีมงานตอบนะครับ</div></div>
+                  <div><span class="flabel">ข้อความตอนโอนหาคน</span><div class="finput filled">กำลังเรียกทีมงานมาคุยต่อให้ครับ สักครู่นะครับ</div></div>
+                  <div><span class="flabel">ข้อความขออนุญาตเก็บข้อมูล</span><div class="finput filled">ขออนุญาตเก็บชื่อและช่องทางติดต่อไว้ให้ทีมงานติดต่อกลับเท่านั้นนะครับ</div></div>
+                  <div><span class="flabel">เวลาทำการ</span><div class="finput"><span class="placeholder">[กรอกเอง]</span> เช่น ทีมงานตอบ จันทร์–ศุกร์ เวลาทำการ</div></div>
+                  <div><span class="flabel">บุคลิกของบอต (ใช้สั่งโมเดล)</span><div class="finput"><span class="placeholder">[กรอกเอง]</span> อยากให้พูดสุภาพแบบไหน เรียกลูกค้าว่าอะไร ยาวสั้นแค่ไหน</div></div>
+                </div>
+                <div class="btn gold" style="margin-top:.6rem">บันทึกทั้งหมด</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <b>ใช้ทำอะไร:</b> แก้คำพูดของบอตทั้งหมดได้จากที่เดียว โดยไม่ต้องแตะโค้ด
+          <b>ปุ่มสำคัญ:</b> <b>สวิตช์บอต</b> คือเบรกฉุกเฉิน — ถ้าวันไหนบอตพูดอะไรแปลก ๆ ปิดสวิตช์นี้ก่อนแล้วค่อยไปไล่หาสาเหตุ
+          ปิดแล้วข้อความยังเข้ามาเก็บไว้ตามปกติ แค่ไม่มีการตอบอัตโนมัติ
+          <b>ช่องที่ยังว่าง:</b> "เวลาทำการ" กับ "บุคลิกของบอต" รอต้นเขียน — ตรงกับคำถามค้าง Q4
+        </figcaption>
+      </figure>
+
+      <!-- messenger -->
+      <h3 id="d10">10 · มุมมองลูกค้าใน Messenger — บทสนทนาเต็ม 1 รอบ</h3>
+      <figure class="mock">
+        <div class="phone">
+          <div class="ph-top">
+            <span class="ph-avatar">TPL</span>
+            <span><span class="ph-name">TONPALEARN</span><br><span class="ph-sub">ตอบกลับทันที</span></span>
+            <span class="sample push" style="margin-left:auto">ตัวอย่าง</span>
+          </div>
+          <div class="ph-body">
+            <div class="ph-time">วันนี้ 14:02</div>
+            <div class="mb me">สวัสดีครับ</div>
+            <div class="mb them">สวัสดีครับ อยากให้ช่วยเรื่องไหนดีครับ</div>
+            <div class="qr"><span>คอร์สที่เปิดอยู่</span><span>ราคา/รอบอบรม</span><span>จัดอบรมในองค์กร</span><span>คุยกับทีมงาน</span></div>
+            <div class="mb me">ราคาเท่าไรครับ</div>
+            <div class="mb them">คอร์สรอบถัดไป <span class="placeholder">[กรอกเอง: ราคา · วันอบรม · ที่จัด]</span>
+สมัครผ่านหน้าจองของเว็บได้เลยครับ</div>
+            <div class="mb me">สนใจครับ</div>
+            <div class="mb them">ขออนุญาตเก็บชื่อและช่องทางติดต่อไว้ให้ทีมงานติดต่อกลับเท่านั้นนะครับ
+
+ขอทราบชื่อที่ให้ทีมงานเรียกหน่อยครับ</div>
+            <div class="mb me">ต้นครับ</div>
+            <div class="mb them">ขอเบอร์โทรหรืออีเมลสำหรับติดต่อกลับครับ</div>
+            <div class="mb me">0812345678</div>
+            <div class="mb them">สนใจเรื่องไหนเป็นพิเศษครับ (เช่น คอร์สไหน หรือ อยากจัดอบรมในองค์กร)</div>
+            <div class="mb me">อยากจัดอบรมในบริษัทครับ</div>
+            <div class="mb them">รับข้อมูลเรียบร้อยครับ เดี๋ยวทีมงานติดต่อกลับนะครับ 🙏</div>
+          </div>
+          <div class="ph-input"><span class="box">Aa</span><span>ส่ง</span></div>
+        </div>
+        <p class="note-side">ภาพจำลองหน้าจอโทรศัพท์ของลูกค้า — ข้อความทั้งหมดเป็นตัวอย่าง</p>
+        <figcaption style="margin-left:auto; margin-right:auto">
+          <b>ใช้ทำอะไร:</b> นี่คือสิ่งที่ลูกค้าเห็นจริง ๆ ทั้งบทสนทนาใช้เวลาไม่กี่นาทีและจบด้วยการที่ระบบมีชื่อกับเบอร์อยู่ในมือแล้ว
+          <b>จุดที่ต้องสังเกต:</b> (1) ปุ่มกลม 4 ปุ่มใต้ข้อความทักทายช่วยให้ลูกค้าไม่ต้องคิดเองว่าจะถามอะไร
+          (2) ช่องสีเหลืองคือที่ที่ราคาจริงจะไปอยู่ ตอนนี้ยังว่างจนกว่าต้นจะกรอก —
+          ถ้าเปิดใช้ทั้งที่ยังว่าง บอตจะไม่ตอบข้อความแบบนี้ แต่จะโยนให้คนตอบแทน
+          (3) บอตขออนุญาตก่อนถามชื่อเสมอ และถามทีละอย่าง ไม่ยิงรวดเป็นแบบฟอร์ม
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- ══════════════════════ E · แผนส่งมอบ ══════════════════════ -->
+    <section class="band" id="e">
+      <span class="sec-no">ส่วน E</span>
+      <h2 class="sec">แผนส่งมอบ</h2>
+
+      <h3 id="e-phase">เฟสการทำงาน</h3>
+      <div class="grid g3">
+        <div class="card">
+          <p class="badge">เฟส 0</p>
+          <p style="margin:.4rem 0 .2rem"><strong>เอกสารและหน้าจอจำลอง</strong></p>
+          <p class="soft" style="margin:0 0 .5rem; font-size:.95rem">ต้องได้ก่อนเขียนโค้ดจริง</p>
+          <ul class="clean" style="margin:0; font-size:.95rem">
+            <li>ข้อเคาะจาก PM</li>
+            <li>สเปกฉบับเต็ม</li>
+            <li>PRD + หน้าจอจำลอง (เอกสารนี้)</li>
+          </ul>
+          <p style="margin:.6rem 0 0"><span class="tag ok">เกือบครบ</span></p>
+        </div>
+        <div class="card">
+          <p class="badge">เฟส 1</p>
+          <p style="margin:.4rem 0 .2rem"><strong>ระบบใช้งานได้จริง</strong></p>
+          <p class="soft" style="margin:0 0 .5rem; font-size:.95rem">เป้าคือขึ้นใช้กับเพจจริงได้</p>
+          <ul class="clean" style="margin:0; font-size:.95rem">
+            <li>รับข้อความจากเฟซบุ๊ก + สมองไฮบริด</li>
+            <li>คำถามที่ถามบ่อย + ฐานความรู้</li>
+            <li>เก็บผู้สนใจ + โอนหาคน</li>
+            <li>หน้าผู้ดูแล 9 หน้า</li>
+          </ul>
+          <p style="margin:.6rem 0 0"><span class="tag p1">กำลังทำ</span></p>
+        </div>
+        <div class="card">
+          <p class="badge">เฟส 2</p>
+          <p style="margin:.4rem 0 .2rem"><strong>ยังไม่ทำในรอบนี้</strong></p>
+          <p class="soft" style="margin:0 0 .5rem; font-size:.95rem">รอผลใช้จริงก่อนตัดสินใจ</p>
+          <ul class="clean" style="margin:0; font-size:.95rem">
+            <li>ตอบคอมเมนต์ใต้โพสต์</li>
+            <li>ส่งข้อความกลุ่มใหญ่</li>
+            <li>สถิติเชิงลึก</li>
+            <li>ดูแลหลายเพจ</li>
+          </ul>
+          <p style="margin:.6rem 0 0"><span class="tag p2">ยังไม่เริ่ม</span></p>
+        </div>
+      </div>
+
+      <h3 id="e-need">สิ่งที่ต้องได้จากต้นก่อน deploy</h3>
+      <p class="readnote">
+        ทุกช่องในตารางนี้ว่างอยู่จริง ๆ ทีมไม่เติมเอง เพราะเป็นของที่เดาไม่ได้และเดาผิดแล้วเสียหาย
+      </p>
+      <div class="table-wrap">
+        <table class="check">
+          <thead><tr><th class="nowrap">เสร็จ</th><th>สิ่งที่ต้องส่ง</th><th>ทำไมต้องมี</th><th class="nowrap">เจ้าของ</th></tr></thead>
+          <tbody>
+            <tr><td><span class="box"></span></td><td><strong>รหัสลับของแอปเฟซบุ๊ก</strong> และรหัสยืนยันที่ตั้งเอง</td><td>ใช้พิสูจน์ว่าข้อความที่เข้ามาเป็นของเฟซบุ๊กจริง ไม่มีก็รับข้อความไม่ได้เลย</td><td class="nowrap">ต้น</td></tr>
+            <tr><td><span class="box"></span></td><td><strong>ไอดีเพจ</strong> และ <strong>โทเคนของเพจ</strong></td><td>ใช้ส่งข้อความออกในนามเพจ และโอนแชทเข้ากล่องข้อความ</td><td class="nowrap">ต้น</td></tr>
+            <tr><td><span class="box"></span></td><td><strong>คีย์ฐานข้อมูล</strong> (ที่อยู่ + คีย์ฝั่งเซิร์ฟเวอร์)</td><td>ที่เก็บบทสนทนา ผู้สนใจ และเนื้อหาทั้งหมด</td><td class="nowrap">ต้น</td></tr>
+            <tr><td><span class="box"></span></td><td><strong>คีย์เรียกโมเดล AI</strong></td><td>ใช้เฉพาะชั้นที่ 6 ตอนต้องเรียบเรียงคำตอบจากฐานความรู้</td><td class="nowrap">ต้น</td></tr>
+            <tr><td><span class="box"></span></td><td><strong>รหัสเข้าหน้าผู้ดูแล</strong> + คำลับสำหรับเซ็นคุกกี้</td><td>กันคนนอกเข้าหลังบ้าน — ตั้งให้ยาว ๆ</td><td class="nowrap">ต้น</td></tr>
+            <tr><td><span class="box"></span></td><td><strong>คำตอบจริง 5 ข้อ</strong> แทน <code>[กรอกเอง]</code> — ราคา · รอบอบรม · เงื่อนไข (ตอบ Q2)</td><td>ตราบใดที่ยังว่าง บอตจะโยนคำถามพวกนี้ให้คนตอบทุกครั้ง</td><td class="nowrap">ต้น</td></tr>
+            <tr><td><span class="box"></span></td><td><strong>ข้อความทักทาย + บุคลิกของบอต</strong> (ตอบ Q4)</td><td>กำหนดเสียงที่ลูกค้าจะได้ยินในทุกข้อความ</td><td class="nowrap">ต้น</td></tr>
+            <tr><td><span class="box"></span></td><td><strong>ตัดสินใจเรื่องสิทธิ์ "เจ้าหน้าที่ติดต่อกลับ"</strong> (ตอบ Q3)</td><td>ตัดสินว่าตอบลูกค้าหลังพ้น 24 ชั่วโมงได้หรือไม่</td><td class="nowrap">ต้น + เฟซบุ๊ก</td></tr>
+            <tr><td><span class="box"></span></td><td>ยืนยันเวอร์ชันช่องทางเชื่อมต่อของเฟซบุ๊ก (ตอบ Q1)</td><td>ค่าที่ตั้งไว้ยังไม่ได้ตรวจสอบ ถ้าล้าสมัยจะส่งข้อความไม่ผ่าน</td><td class="nowrap">ทีมพัฒนา</td></tr>
+            <tr><td><span class="box"></span></td><td>เนื้อหาสำหรับฐานความรู้ (รายละเอียดคอร์ส เงื่อนไของค์กร ฯลฯ)</td><td>ยิ่งมีมาก บอตยิ่งตอบเองได้มาก และโยนหาคนน้อยลง</td><td class="nowrap">ต้น</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="e-dod">นิยามคำว่า "เสร็จ"</h3>
+      <p class="readnote">ครบทุกข้อนี้เท่านั้นจึงนับว่าส่งมอบแล้ว — ไม่ใช่แค่ "โค้ดรันได้"</p>
+      <div class="table-wrap">
+        <table class="check">
+          <thead><tr><th class="nowrap">เสร็จ</th><th>เกณฑ์</th></tr></thead>
+          <tbody>
+            <tr><td><span class="box"></span></td><td>โปรแกรมสร้างผ่าน และเทสต์อัตโนมัติเขียวทั้งหมด</td></tr>
+            <tr><td><span class="box"></span></td><td>เชื่อมต่อกับเฟซบุ๊กสำเร็จ และตรวจลายเซ็นของจริงผ่าน</td></tr>
+            <tr><td><span class="box"></span></td><td>ส่งข้อความทดสอบเข้าเพจแล้วบอตตอบกลับได้จริง โดยมีหลักฐานเป็นภาพหรือบันทึก</td></tr>
+            <tr><td><span class="box"></span></td><td>หน้าผู้ดูแลเปิดได้ ล็อกอินได้ แก้คำถามที่ถามบ่อยแล้วบอตตอบตามที่แก้จริง</td></tr>
+            <tr><td><span class="box"></span></td><td>โอนหาคนแล้วบอตเงียบจริง และคืนสายกลับมาได้</td></tr>
+            <tr><td><span class="box"></span></td><td>สเปกและ PRD ฉบับนี้ตรงกับโค้ดที่ส่ง</td></tr>
+            <tr><td><span class="box"></span></td><td>มีคู่มือขึ้นระบบที่คนอื่นทำตามแล้วขึ้นได้เอง</td></tr>
+            <tr><td><span class="box"></span></td><td>ผ่านการตรวจหาจุดแตกก่อนขึ้นจริง และแก้ประเด็นระดับ blocker ครบ</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout">
+        <p class="h">ก้าวถัดไปที่ชัดที่สุด</p>
+        <ol style="margin:0">
+          <li><strong>ต้น</strong> — อ่านเอกสารนี้แล้วบอกว่าตรงกับที่คิดไว้ไหม โดยเฉพาะส่วน D หน้าจอจำลอง</li>
+          <li><strong>ต้น</strong> — ตอบคำถามค้าง Q2 (ราคา/รอบอบรม) และ Q4 (บุคลิกบอต) เพราะสองข้อนี้บล็อกการเปิดใช้จริง</li>
+          <li><strong>ทีมพัฒนา</strong> — ปิดหน้าผู้ดูแลให้ครบและตรวจด้วยตาจริงทุกหน้า</li>
+          <li><strong>ผู้ตรวจ</strong> — ไล่หาจุดแตกก่อน deploy แล้วแก้ให้ครบ</li>
+          <li><strong>ทั้งทีม</strong> — เปิดใช้ในวงจำกัดก่อน (แอดมินเพจทดสอบเอง) แล้วค่อยเปิดให้คนนอก</li>
+        </ol>
+      </div>
+
+      <footer class="end">
+        <p style="margin:0">
+          เอกสารนี้สรุปจาก <code>docs/SPEC.md</code> (แหล่งความจริงเดียว) และ <code>docs/00-PM-BRIEF.md</code> ·
+          ถ้าโค้ดเปลี่ยนพฤติกรรม ต้องไล่แก้ทั้งสเปกและเอกสารนี้ในรอบเดียวกัน ·
+          จัดทำโดยฝ่ายออกแบบ · 5 สิงหาคม 2569
+        </p>
+      </footer>
+    </section>
+
+    </main>
+  </div>
+</div>
+
+<script>
+/* ── สลับโหมดสว่าง/มืด ───────────────────────────────────── */
+(function () {
+  var btn = document.getElementById("themeBtn");
+  function current() {
+    var set = document.documentElement.dataset.theme;
+    if (set === "light" || set === "dark") return set;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  function paint() {
+    btn.textContent = current() === "dark" ? "☀︎ โหมดสว่าง" : "☾ โหมดมืด";
+  }
+  btn.addEventListener("click", function () {
+    var next = current() === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("prd_theme", next); } catch (e) {}
+    paint();
+    if (window.__renderDiagrams) window.__renderDiagrams();
+  });
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
+    if (!document.documentElement.dataset.theme) { paint(); if (window.__renderDiagrams) window.__renderDiagrams(); }
+  });
+  paint();
+})();
+
+/* ── สารบัญ: ไฮไลต์หัวข้อที่กำลังอ่าน ────────────────────── */
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll("#toc a"));
+  var targets = links.map(function (a) { return document.querySelector(a.getAttribute("href")); }).filter(Boolean);
+  function onScroll() {
+    var y = window.scrollY + 120, active = targets[0];
+    targets.forEach(function (t) { if (t.offsetTop <= y) active = t; });
+    links.forEach(function (a) { a.classList.toggle("on", a.getAttribute("href") === "#" + active.id); });
+  }
+  window.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+})();
+
+/* ── ทางสำรองเมื่อโหลดตัววาดไดอะแกรมไม่สำเร็จ ─────────────── */
+window.__mermaidOK = false;
+setTimeout(function () {
+  if (window.__mermaidOK) return;
+  document.querySelectorAll(".diagram").forEach(function (d) {
+    d.classList.add("failed");
+    var det = d.querySelector("details.txt");
+    if (det) det.open = true;
+  });
+}, 6000);
+</script>
+
+<script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+const nodes = Array.from(document.querySelectorAll(".mermaid"));
+nodes.forEach((n) => { n.dataset.src = n.textContent; });
+
+function vars() {
+  const set = document.documentElement.dataset.theme;
+  const dark = set === "dark" || (set !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  return dark
+    ? {
+        background: "#1c1e25", primaryColor: "#2a2d36", primaryTextColor: "#f0eee9",
+        primaryBorderColor: "#d8a75a", lineColor: "#a8adb8", secondaryColor: "#3a2f1c",
+        tertiaryColor: "#22242c", noteBkgColor: "#3a2f1c", noteTextColor: "#f0eee9",
+        noteBorderColor: "#d8a75a", actorBkg: "#2a2d36", actorTextColor: "#f0eee9",
+        actorBorder: "#d8a75a", signalColor: "#a8adb8", signalTextColor: "#f0eee9",
+        labelBoxBkgColor: "#3a2f1c", labelTextColor: "#f0eee9", labelBoxBorderColor: "#d8a75a",
+        altBackground: "#22242c", textColor: "#f0eee9", mainBkg: "#2a2d36",
+        sequenceNumberColor: "#1a1408",
+      }
+    : {
+        background: "#ffffff", primaryColor: "#fbf7ef", primaryTextColor: "#16181d",
+        primaryBorderColor: "#b8863b", lineColor: "#4a4f5a", secondaryColor: "#f3e7d0",
+        tertiaryColor: "#f7f6f3", noteBkgColor: "#f3e7d0", noteTextColor: "#16181d",
+        noteBorderColor: "#b8863b", actorBkg: "#fbf7ef", actorTextColor: "#16181d",
+        actorBorder: "#b8863b", signalColor: "#4a4f5a", signalTextColor: "#16181d",
+        labelBoxBkgColor: "#f3e7d0", labelTextColor: "#16181d", labelBoxBorderColor: "#b8863b",
+        altBackground: "#f7f6f3", textColor: "#16181d", mainBkg: "#fbf7ef",
+        sequenceNumberColor: "#ffffff",
+      };
+}
+
+async function render() {
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: "base",
+    themeVariables: vars(),
+    fontFamily: "Anuphan, ui-sans-serif, system-ui, sans-serif",
+    securityLevel: "loose",
+    sequence: { useMaxWidth: true, wrap: true, width: 165, actorMargin: 42, mirrorActors: false },
+    flowchart: { useMaxWidth: false, htmlLabels: true, curve: "basis", nodeSpacing: 45, rankSpacing: 55 },
+  });
+  nodes.forEach((n) => {
+    n.removeAttribute("data-processed");
+    n.innerHTML = n.dataset.src;
+  });
+  try {
+    await mermaid.run({ nodes });
+    document.querySelectorAll(".diagram").forEach((d) => { d.classList.add("ready"); d.classList.remove("failed"); });
+    window.__mermaidOK = true;
+  } catch (e) {
+    document.querySelectorAll(".diagram").forEach((d) => {
+      d.classList.add("failed");
+      const det = d.querySelector("details.txt");
+      if (det) det.open = true;
+    });
+  }
+}
+
+window.__renderDiagrams = render;
+render();
+</script>
+
+</body>
+</html>
