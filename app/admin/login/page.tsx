@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
 function LoginForm() {
-  const router = useRouter();
   const params = useSearchParams();
   const [passcode, setPasscode] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -26,8 +25,13 @@ function LoginForm() {
         setError(json.error ?? "เข้าสู่ระบบไม่สำเร็จ");
         return;
       }
-      router.push(params.get("next") ?? "/admin");
-      router.refresh();
+      // ใช้การโหลดหน้าใหม่ทั้งหน้า ไม่ใช่ router.push
+      // เหตุผล: เพิ่งตั้งคุกกี้เสร็จหมาด ๆ ถ้าเปลี่ยนหน้าแบบไม่โหลดใหม่
+      // เบราว์เซอร์อาจดึงหน้าเก่าจากแคชของ CDN ที่ยังไม่รู้จักคุกกี้ แล้วเด้งเป็น 404
+      const next = params.get("next");
+      // กันไม่ให้ถูกพาไปเว็บอื่นผ่านพารามิเตอร์ next
+      const target = next && next.startsWith("/") && !next.startsWith("//") ? next : "/admin";
+      window.location.assign(target);
     } catch {
       setError("ต่อกับเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้งครับ");
     } finally {

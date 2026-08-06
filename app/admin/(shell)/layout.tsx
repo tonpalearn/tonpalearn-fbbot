@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { ThemeToggle, LogoutButton } from "./nav";
 
+/**
+ * หน้าหลังบ้านทุกหน้าต้องไม่ถูกเก็บแคชที่ CDN
+ * ไม่งั้นเวลาเข้าครั้งแรกหลังล็อกอิน อาจได้หน้าเก่าที่ยังไม่รู้จักคุกกี้ แล้วกลายเป็น 404
+ */
+export const dynamic = "force-dynamic";
+
 const MENU = [
   { href: "/admin", label: "ภาพรวม" },
   { href: "/admin/inbox", label: "กล่องข้อความ" },
