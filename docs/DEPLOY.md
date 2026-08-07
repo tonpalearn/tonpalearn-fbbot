@@ -138,6 +138,8 @@ curl -X POST "https://graph.facebook.com/v21.0/PAGE_ID/messenger_profile?access_
 | อาการ | สาเหตุที่พบบ่อย |
 |---|---|
 | Verify webhook ไม่ผ่าน | `FB_VERIFY_TOKEN` ใน Vercel ไม่ตรงกับที่กรอกในหน้า Facebook |
+| กด "ขอคุยเอง" แล้วขึ้น error `(#27) Take thread control is not supported when conversation routing is not enabled` | เพจยังไม่ได้ตั้ง Primary/Secondary Receiver (ขั้นที่ 4 ข้อ 6) — เปิดแล้วจะกดได้ทันที ไม่ต้อง deploy ใหม่ |
+| ตอบจากหน้าแอดมินแล้วขึ้น error `(#10) another app is controlling this thread` | สายอยู่กับ Page Inbox — กด "ขอคุยเอง" ก่อนเพื่อดึงสายกลับ แล้วค่อยพิมพ์ตอบ (หรือไปตอบใน Meta Business Suite แทน) |
 | บอตเงียบสนิท | ลืมกด **Add Subscriptions** ตรงเพจ · หรือแชทนั้นอยู่สถานะ `human_active` |
 | ขึ้น 401 ลายเซ็นไม่ถูกต้อง | `FB_APP_SECRET` ผิด หรือคัดลอกมาไม่ครบ |
 | ส่งข้อความจากหน้าแอดมินไม่ได้ | เลยหน้าต่าง 24 ชั่วโมงนับจากข้อความล่าสุดของลูกค้า |
