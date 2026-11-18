@@ -73,8 +73,8 @@ export function Sidebar() {
   const router = useRouter();
   return (
     <aside
-      className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r p-4 lg:flex"
-      style={{ borderColor: "var(--line)", background: "var(--card2)" }}
+      className="glass-bar sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r p-4 lg:flex"
+      style={{ borderColor: "var(--glass-line)" }}
     >
       <div className="mb-5 flex items-center justify-between gap-2 px-1">
         <Brand />
@@ -105,8 +105,8 @@ export function Sidebar() {
 export function TopBar() {
   return (
     <header
-      className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b px-4 py-2 lg:hidden"
-      style={{ borderColor: "var(--line)", background: "var(--bg)" }}
+      className="glass-bar sticky top-0 z-30 flex items-center justify-between gap-2 border-b px-4 py-2 lg:hidden"
+      style={{ borderColor: "var(--glass-line)" }}
     >
       <Brand />
       <div className="flex items-center">
@@ -139,8 +139,8 @@ export function BottomTabs() {
     <>
       <nav
         aria-label="เมนูหลัก"
-        className="pb-safe fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t lg:hidden"
-        style={{ borderColor: "var(--line)", background: "var(--card)" }}
+        className="glass-bar pb-safe fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t lg:hidden"
+        style={{ borderColor: "var(--glass-line)", boxShadow: "0 -8px 24px -16px rgba(0,0,0,.25)" }}
       >
         {MAIN.map((m) => {
           const active = isActive(pathname, m.href);

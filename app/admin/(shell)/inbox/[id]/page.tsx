@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { use, useEffect, useRef, useState } from "react";
 import { LeadFacts, type LeadLike } from "@/components/lead";
-import { IconAlert, IconBack, IconSend } from "@/components/icons";
+import type { DeadlineLevel } from "@/lib/today";
+import { IconAlert, IconBack, IconCheck, IconSend } from "@/components/icons";
 import {
   api,
   CopyButton,
@@ -148,30 +149,18 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
         </div>
       )}
 
-      {/* 2 · ร่างตามรอบ 2 (บอตไม่ส่งเอง) */}
+      {/* 2 · ร่างตามรอบ 2 (บอตไม่ส่งเอง — ต้นแก้แล้วกดส่งเอง) */}
       {draft && (
-        <section className="card space-y-3 p-4" data-testid="round-two-draft" aria-labelledby="draft-h">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 id="draft-h" className="font-semibold">
-              ร่างตามรอบ 2 (วันที่ 3–5) — ต้นส่งเอง
-            </h2>
-            <DeadlineBadge deadline={dl.deadline} level={dl.level} />
-          </div>
-          <p
-            className="select-all whitespace-pre-wrap rounded-xl p-3"
-            style={{ background: "var(--bg)", border: "1px solid var(--line)" }}
-          >
-            {draft}
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <CopyButton text={draft} label="คัดลอกข้อความ" className="btn-gold" />
-            <span className="soft text-[0.9rem]">
-              แทน [ปัญหา] ด้วยคำสั้น ๆ ของต้นก่อนส่ง · ส่งใน Business Suite
-              {dl.deadline ? ` · ส่งได้ถึง ${thaiTime(dl.deadline)}` : ""}
-              {data.followup?.sentAt ? " · บอตตามอัตโนมัติไปแล้ว 1 ครั้ง" : ""}
-            </span>
-          </div>
-        </section>
+        <DraftComposer
+          key={data.followup?.draftAt ?? draft}
+          draft={draft}
+          deadline={dl.deadline}
+          level={dl.level}
+          autoSent={Boolean(data.followup?.sentAt)}
+          busy={busy}
+          onSend={(t) => act(`/api/admin/conversations/${id}/draft`, { text: t })}
+          onDone={() => act(`/api/admin/conversations/${id}/draft`, undefined, "DELETE")}
+        />
       )}
 
       {notice && <Notice tone="warn">{notice}</Notice>}
@@ -287,5 +276,112 @@ function SystemNote({ m }: { m: MessageRow }) {
       </p>
       <p className="whitespace-pre-wrap break-words">{m.content}</p>
     </div>
+  );
+}
+
+/** ร่างรอบ 2: แก้ในกล่อง → ตรวจช่อง [ ] → ยืนยัน → ส่งทาง Messenger (หรือกดว่าส่งเองแล้ว) */
+function DraftComposer({
+  draft,
+  deadline,
+  level,
+  autoSent,
+  busy,
+  onSend,
+  onDone,
+}: {
+  draft: string;
+  deadline: string | null;
+  level: DeadlineLevel;
+  autoSent: boolean;
+  busy: boolean;
+  onSend: (text: string) => Promise<boolean>;
+  onDone: () => Promise<boolean>;
+}) {
+  const [text, setText] = useState(draft);
+  const [confirming, setConfirming] = useState(false);
+  const holes = [...new Set(text.match(/\[[^\]\n]{1,40}\]|\{[^}\n]{1,40}\}/g) ?? [])];
+  const expired = level === "expired";
+  const canSend = !busy && !expired && text.trim() !== "" && holes.length === 0;
+
+  return (
+    <section className="card space-y-3 p-4" data-testid="round-two-draft" aria-labelledby="draft-h">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 id="draft-h" className="font-semibold">
+          ร่างตามรอบ 2 (วันที่ 3–5) — ต้นแก้แล้วกดส่ง
+        </h2>
+        <DeadlineBadge deadline={deadline} level={level} />
+      </div>
+
+      <label htmlFor="draft-text" className="sr-only">
+        ข้อความร่างรอบ 2
+      </label>
+      <textarea
+        id="draft-text"
+        rows={Math.min(8, Math.max(3, text.split("\n").length + 1))}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          setConfirming(false);
+        }}
+        aria-describedby="draft-help"
+      />
+
+      {holes.length > 0 ? (
+        <p id="draft-help" className="chip chip-amber whitespace-normal" role="status">
+          <span className="dot" aria-hidden="true" />
+          เติมก่อนส่ง: {holes.join(" ")}
+        </p>
+      ) : (
+        <p id="draft-help" className="soft text-[0.9rem]">
+          {expired
+            ? "เลย 7 วันแล้ว Facebook ไม่ให้ส่ง — ติดต่อทางเบอร์หรือ LINE ในการ์ดด้านบน"
+            : `พร้อมส่ง${deadline ? ` · ส่งได้ถึง ${thaiTime(deadline)}` : ""}${autoSent ? " · บอตตามอัตโนมัติไปแล้ว 1 ครั้ง" : ""}`}
+        </p>
+      )}
+
+      {confirming ? (
+        <div className="card-quiet space-y-3 p-3" role="alertdialog" aria-labelledby="draft-confirm-h">
+          <p id="draft-confirm-h" className="font-medium">
+            ส่งข้อความนี้ให้ลูกค้าทาง Messenger เลยไหม
+          </p>
+          <p className="soft text-[0.9rem]">
+            ส่งแล้วดึงกลับไม่ได้ · ห้องนี้จะเปลี่ยนเป็น “ต้นคุยเอง” บอตหยุดตอบจนกว่าจะกดคืนให้บอต
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="btn-gold"
+              disabled={!canSend}
+              onClick={async () => {
+                const ok = await onSend(text.trim());
+                if (!ok) setConfirming(false);
+              }}
+            >
+              <IconSend size={18} /> {busy ? "กำลังส่ง..." : "ยืนยัน ส่งเลย"}
+            </button>
+            <button type="button" className="btn-quiet" disabled={busy} onClick={() => setConfirming(false)}>
+              ยังก่อน
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" className="btn-gold" disabled={!canSend} onClick={() => setConfirming(true)}>
+            <IconSend size={18} /> ส่งให้ลูกค้า
+          </button>
+          <CopyButton text={text} label="คัดลอก" className="btn-quiet" />
+          <button
+            type="button"
+            className="btn-ghost"
+            disabled={busy}
+            onClick={() => {
+              if (window.confirm("ส่งใน Business Suite แล้ว หรือไม่ใช้ร่างนี้? ร่างจะหายจากคิวงานวันนี้")) void onDone();
+            }}
+          >
+            <IconCheck size={18} /> ส่งใน Business Suite แล้ว
+          </button>
+        </div>
+      )}
+    </section>
   );
 }

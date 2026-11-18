@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * แผง "การแสดงผล" — โหมดสี 3 ทาง (ตามเครื่อง · สว่าง · มืด) + ขนาดตัวอักษร 3 ระดับ (ก ก ก)
+ * แผง "การแสดงผล" — โหมดสี 3 ทาง (ตามเครื่อง · สว่าง · มืด) · สีหลัก 5 สี · ฟอนต์ 4 แบบ · ขนาดตัวอักษร 3 ระดับ
  * เก็บเป็น object เดียวใน localStorage คีย์ fbchat_look · ใส่ก่อนวาดหน้าโดยสคริปต์ใน app/layout.tsx
  * ปุ่มสลับโหมดเร็วบนแถบบนยังอยู่ แยกจากแผง (ตาม feedback_metatron_theme_toggle)
  */
@@ -11,13 +11,21 @@ import { IconCheck, IconDisplay, IconMonitor, IconMoon, IconSun, IconX } from ".
 
 export type ThemeMode = "system" | "light" | "dark";
 export type TextSize = "sm" | "md" | "lg";
+export type Accent = "gold" | "teal" | "blue" | "violet" | "rose";
+export type FontChoice = "plex" | "anuphan" | "sarabun" | "noto";
 export interface Look {
   theme: ThemeMode;
   size: TextSize;
+  accent: Accent;
+  font: FontChoice;
 }
 
 const KEY = "fbchat_look";
-const DEFAULT_LOOK: Look = { theme: "system", size: "md" };
+const DEFAULT_LOOK: Look = { theme: "system", size: "md", accent: "gold", font: "plex" };
+const ACCENT_VALUES: Accent[] = ["gold", "teal", "blue", "violet", "rose"];
+const FONT_VALUES: FontChoice[] = ["plex", "anuphan", "sarabun", "noto"];
+const isDefault = (l: Look) =>
+  l.theme === DEFAULT_LOOK.theme && l.size === DEFAULT_LOOK.size && l.accent === DEFAULT_LOOK.accent && l.font === DEFAULT_LOOK.font;
 
 function readLook(): Look {
   try {
@@ -30,6 +38,8 @@ function readLook(): Look {
     return {
       theme: l.theme === "light" || l.theme === "dark" ? l.theme : "system",
       size: l.size === "sm" || l.size === "lg" ? l.size : "md",
+      accent: ACCENT_VALUES.includes(l.accent as Accent) ? (l.accent as Accent) : "gold",
+      font: FONT_VALUES.includes(l.font as FontChoice) ? (l.font as FontChoice) : "plex",
     };
   } catch {
     return DEFAULT_LOOK;
@@ -42,6 +52,10 @@ function applyLook(l: Look) {
   else d.setAttribute("data-theme", l.theme);
   if (l.size === "md") d.removeAttribute("data-size");
   else d.setAttribute("data-size", l.size);
+  if (l.accent === "gold") d.removeAttribute("data-accent");
+  else d.setAttribute("data-accent", l.accent);
+  if (l.font === "plex") d.removeAttribute("data-font");
+  else d.setAttribute("data-font", l.font);
   // แถบเบราว์เซอร์มือถือให้สีตามโหมดที่เลือก
   const dark =
     l.theme === "dark" || (l.theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
@@ -49,7 +63,7 @@ function applyLook(l: Look) {
     m.setAttribute("content", dark ? "#0C0E13" : "#F7F6F2");
   });
   try {
-    if (l.theme === "system" && l.size === "md") localStorage.removeItem(KEY);
+    if (isDefault(l)) localStorage.removeItem(KEY);
     else localStorage.setItem(KEY, JSON.stringify(l));
     localStorage.removeItem("fbchat_theme");
   } catch {
@@ -77,6 +91,22 @@ const THEMES: { value: ThemeMode; label: string; Icon: typeof IconSun }[] = [
   { value: "system", label: "ตามเครื่อง", Icon: IconMonitor },
   { value: "light", label: "สว่าง", Icon: IconSun },
   { value: "dark", label: "มืด", Icon: IconMoon },
+];
+
+/** sw = สีตัวอย่างบนปุ่ม (ค่ากลางที่อ่านได้ทั้งสองโหมด) */
+const ACCENTS: { value: Accent; label: string; sw: string }[] = [
+  { value: "gold", label: "ทอง", sw: "linear-gradient(180deg,#e9b833,#d99f1b)" },
+  { value: "teal", label: "เขียวน้ำทะเล", sw: "linear-gradient(180deg,#2bb8a6,#0e8a7b)" },
+  { value: "blue", label: "น้ำเงิน", sw: "linear-gradient(180deg,#4f7fe0,#2a56a8)" },
+  { value: "violet", label: "ม่วง", sw: "linear-gradient(180deg,#8e63db,#6a3fb5)" },
+  { value: "rose", label: "ชมพูกุหลาบ", sw: "linear-gradient(180deg,#d9587f,#b23a66)" },
+];
+
+const FONTS: { value: FontChoice; label: string; note: string; css: string }[] = [
+  { value: "plex", label: "IBM Plex", note: "ค่าเริ่มต้น อ่านง่าย", css: "var(--font-plex)" },
+  { value: "anuphan", label: "อนุพันธ์", note: "ทันสมัย ไม่มีหัว", css: "var(--font-anuphan)" },
+  { value: "sarabun", label: "สารบรรณ", note: "มีหัว แบบเอกสาร", css: "var(--font-sarabun)" },
+  { value: "noto", label: "Noto Sans", note: "เรียบ ชัดบนจอเล็ก", css: "var(--font-noto)" },
 ];
 
 const SIZES: { value: TextSize; label: string; px: string }[] = [
@@ -146,8 +176,8 @@ export function DisplayPanel({ onClose }: { onClose: () => void }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="look-title"
-        className="card pb-safe w-full max-w-md space-y-5 rounded-b-none p-5 sm:rounded-b-2xl"
-        style={{ boxShadow: "var(--shadow-m)" }}
+        className="card pb-safe max-h-[92dvh] w-full max-w-md space-y-5 overflow-y-auto rounded-b-none p-5 sm:rounded-b-[20px]"
+        style={{ boxShadow: "var(--shadow-m)", background: "var(--card)" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
@@ -180,6 +210,62 @@ export function DisplayPanel({ onClose }: { onClose: () => void }) {
             })}
           </div>
           <p className="soft mt-2 text-[0.88rem]">“ตามเครื่อง” = สว่างหรือมืดตามที่ตั้งไว้ในมือถือ/คอมพิวเตอร์</p>
+        </fieldset>
+
+        <fieldset>
+          <legend className="mb-2 font-medium">สีหลัก</legend>
+          <div className="flex flex-wrap gap-2.5" role="group">
+            {ACCENTS.map((a) => {
+              const on = look.accent === a.value;
+              return (
+                <button
+                  key={a.value}
+                  type="button"
+                  aria-pressed={on}
+                  aria-label={`สีหลัก ${a.label}`}
+                  title={a.label}
+                  onClick={() => setLook({ ...look, accent: a.value })}
+                  className="grid h-12 w-12 place-items-center rounded-full transition-transform"
+                  style={{
+                    background: a.sw,
+                    color: "#fff",
+                    boxShadow: on ? "0 0 0 3px var(--card), 0 0 0 5px var(--tx)" : "0 2px 8px -2px rgba(0,0,0,.3)",
+                    transform: on ? "scale(1.05)" : undefined,
+                  }}
+                >
+                  {on && <IconCheck size={20} />}
+                </button>
+              );
+            })}
+          </div>
+          <p className="soft mt-2 text-[0.88rem]">
+            ตอนนี้: {ACCENTS.find((a) => a.value === look.accent)?.label} — ใช้กับปุ่มหลักและจุดที่ต้องทำ
+          </p>
+        </fieldset>
+
+        <fieldset>
+          <legend className="mb-2 font-medium">ฟอนต์</legend>
+          <div className="grid grid-cols-2 gap-2">
+            {FONTS.map((f) => {
+              const on = look.font === f.value;
+              return (
+                <button
+                  key={f.value}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => setLook({ ...look, font: f.value })}
+                  className="card-quiet flex min-h-[64px] flex-col items-start justify-center px-3 py-2 text-left"
+                  style={{
+                    fontFamily: f.css,
+                    ...(on ? { borderColor: "var(--gold-line)", background: "var(--gold-soft)", color: "var(--gold)" } : {}),
+                  }}
+                >
+                  <span className="font-semibold leading-snug">{f.label} · กขค</span>
+                  <span className="soft text-[0.82rem] leading-snug">{f.note}</span>
+                </button>
+              );
+            })}
+          </div>
         </fieldset>
 
         <fieldset>
