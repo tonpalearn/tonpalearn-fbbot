@@ -32,7 +32,9 @@ const MIX_LABEL: Record<string, string> = {
 };
 
 export default function DashboardPage() {
-  const stats = useLoad<Stats>("/api/admin/stats");
+  // API ส่งกลับเป็น { stats, recent } — ต้องแกะชั้น stats ก่อนใช้ ไม่งั้นกราฟพังทั้งหน้า
+  const statsRes = useLoad<{ stats: Stats }>("/api/admin/stats");
+  const stats = { ...statsRes, data: statsRes.data?.stats ?? null };
   const convos = useLoad<{ items: Conversation[] }>("/api/admin/conversations?limit=10");
 
   return (
@@ -129,7 +131,7 @@ function Metric({
 }
 
 function MixBar({ mix }: { mix: Record<string, number> }) {
-  const total = Object.values(mix).reduce((a, b) => a + b, 0);
+  const total = Object.values(mix ?? {}).reduce((a, b) => a + b, 0);
   if (total === 0) return <p className="soft">ยังไม่มีข้อความที่บอตตอบออกไป</p>;
 
   const colors: Record<string, string> = {
