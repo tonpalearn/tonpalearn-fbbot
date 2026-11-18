@@ -153,4 +153,4 @@ smoke สคริปต์ export กับ Graph ปลอมหลายห�
 - ปุ่ม "ส่งให้ลูกค้า" ในกล่องร่างรอบ 2: แก้ข้อความได้ → กันส่งถ้ายังมี `[…]` → ยืนยันอีกชั้น → `POST /api/admin/conversations/[id]/draft` (เลย 24 ชม. ใช้ป้าย HUMAN_AGENT · เลย 7 วันไม่ให้ส่ง) → ห้องเป็น human_active + ร่างออกจากคิว
 - ปุ่ม "ส่งใน Business Suite แล้ว" = `DELETE …/draft` เก็บร่างออกจากคิว · ตรรกะตรวจอยู่ `lib/draft-send.ts` + `tests/draft-send.test.ts`
 - หน้าตา: การ์ด/แถบเป็นกระจกฝ้า ขอบมน 20px เงานุ่ม · แผงการแสดงผลเพิ่มสีหลัก 5 สี (ทอง/เขียวน้ำทะเล/น้ำเงิน/ม่วง/ชมพู) + ฟอนต์ 4 แบบ (IBM Plex/อนุพันธ์/สารบรรณ/Noto) ใส่ก่อนวาดหน้า
-- cron ตามลูกค้า: ใช้ Supabase pg_cron + pg_net เรียก `/api/cron/followup` (ไม่ใช้ Vercel Cron) — ยังรอ CRON_SECRET บน Vercel
+- cron ตามลูกค้า: **เปิดแล้ว** Supabase pg_cron job `fbbot-followup` ทุก 30 นาที → pg_net เรียก `/api/cron/followup` · กุญแจใน Vault `fbbot_cron_secret` = CRON_SECRET บน Vercel · ทดสอบรอบแรก 200 (checked 0) · ดู `supabase/migrations/0005_followup_cron_supabase.sql`
