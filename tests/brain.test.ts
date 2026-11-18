@@ -36,7 +36,11 @@ vi.mock("@/lib/store", () => ({
     state.updates.push(patch);
     Object.assign(state.conversation, patch);
   }),
-  getHistory: vi.fn(async () => []),
+  // ค่าเริ่ม = ห้องที่เคยคุยแล้ว (ทดสอบชั้น FAQ/ฐานความรู้) · คนใหม่ทักเองทดสอบใน brain-qualifier.test.ts
+  getHistory: vi.fn(async () => [
+    { role: "assistant" as const, content: "ก่อนหน้า" },
+    { role: "user" as const, content: "ตอนนี้" },
+  ]),
   isBotEnabled: vi.fn(async () => state.botEnabled),
   getActiveRules: vi.fn(async () => state.rules),
   searchFaq: vi.fn(async () => state.faq),

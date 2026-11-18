@@ -25,6 +25,7 @@ import {
   TASK_BUTTONS_SMALL,
   THINK_BUTTONS,
   USECASE_BUTTONS,
+  REVENUE_BUTTONS,
   VOICE,
   buildSummary,
   contactToString,
@@ -38,6 +39,9 @@ import {
   openingParts,
   pickCase,
   priceText,
+  reflectTask,
+  isGreetingOnly,
+  detectAdEntry,
   roundTwoDraft,
   sanitizeExtracted,
   selfLearnPrice,
@@ -86,6 +90,19 @@ export async function startQualifier(convo: Conversation, entry: AdEntry): Promi
   return multi(open.parts, `qualifier:open:${entry.segment}`);
 }
 
+/**
+ * ทักเข้ามาเอง ไม่ได้กดปุ่มแอด (บทเรียนแชทสด 18 พ.ย. 69):
+ *  - ทักทายเฉย ๆ → ข้อความเดียว ถามยอดขาย + ปุ่ม 4 ปุ่ม (ไม่ส่งเมนูบริการ ไม่ส่งหลายข้อความซ้อน)
+ *  - บอกงาน/ถามมาเลย → เก็บเป็น "งาน" แล้วสะท้อนคำของลูกค้ากลับ + ถามข้อเดียว (หรือตอบคำถามแทรกก่อน)
+ */
+export async function startOpenQualifier(convo: Conversation, ctx: QualCtx, text: string): Promise<BotAction> {
+  const button = `(พิมพ์เอง) ${clip(text, 60)}`;
+  if (isGreetingOnly(text)) return startQualifier(convo, { segment: "open", button, revenueBand: null });
+  const d: Draft = newDraft({ segment: "open", button, revenueBand: null }, "task");
+  await save(convo.id, d);
+  return continueQualifier({ ...convo, state: "collecting_lead", lead_draft: d as unknown as Record<string, unknown> }, ctx, text);
+}
+
 /** ข้อความถามของช่องที่รออยู่ (ใช้ถามซ้ำหลังตอบคำถามแทรก) */
 function pendingQuestion(d: Draft, slots: string[]): OutPart | null {
   switch (d.pending) {
@@ -109,6 +126,8 @@ function pendingQuestion(d: Draft, slots: string[]): OutPart | null {
       return { text: "ตอนนี้ในบริษัทมีทีม IT ไหมครับ", replies: IT_BUTTONS };
     case "workflow_task":
       return { text: VOICE.workflow1 };
+    case "revenue":
+      return { text: VOICE.openHello, replies: REVENUE_BUTTONS };
     default:
       return null;
   }
@@ -150,7 +169,9 @@ async function advance(convo: Conversation, ctx: QualCtx, d: Draft, lead: OutPar
   if (!answerCaseFirst && !has("pain")) {
     // ลูกค้าพิมพ์งานมาละเอียดแล้ว → ใช้ด่าน 2 ข้อ 1 ของต้นแทน
     const detailed = (d.fields.task ?? "").length >= 25;
-    return ask("pain", { text: detailed ? VOICE.painDetailed : VOICE.pain }, "qualifier:ask:pain");
+    const q = detailed ? VOICE.painDetailed : VOICE.pain;
+    // สะท้อนคำของลูกค้ากลับก่อนถาม (บทเรียนแชทสด: ลูกค้าบอกเรื่องเฉพาะ อย่าตอบกว้าง)
+    return ask("pain", { text: d.fields.task ? reflectTask(d.fields.task, q) : q }, "qualifier:ask:pain");
   }
   if (!answerCaseFirst && !has("business_type")) return ask("business_type", { text: VOICE.businessType }, "qualifier:ask:business_type");
 
@@ -159,10 +180,9 @@ async function advance(convo: Conversation, ctx: QualCtx, d: Draft, lead: OutPar
     const c = pickCase(d.fields.business_type);
     d.caseShown = true;
     d.caseKey = c.key;
-    lead = [...lead, { text: c.text }];
     if (d.wantCase) {
-      // ลูกค้าถามหาตัวอย่างเอง → ตอบครบ 3 ข้อความตาม BOT-VOICE 3.2
-      lead.push({ text: VOICE.casePrivacy });
+      // ลูกค้าถามหาตัวอย่างเอง → เคส + เรื่องชื่อลูกค้าในข้อความเดียว แล้วชวนนัด (ไม่ส่งซ้อน 3 ข้อความ)
+      lead = [...lead, { text: `${c.text}\n${VOICE.casePrivacy}` }];
       d.wantCase = false;
       if (slots.length !== 2) {
         return finishQualifier(convo, ctx, d, "ลูกค้าขอตัวอย่างงาน · ยังไม่มีช่องเวลาว่างให้เสนอ", [
@@ -178,14 +198,14 @@ async function advance(convo: Conversation, ctx: QualCtx, d: Draft, lead: OutPar
         "qualifier:invite",
       );
     }
+    lead = [...lead, { text: c.text }];
   }
 
   if (!d.meetingOffered && !d.fields.slot && slots.length === 2) {
     d.meetingOffered = true;
     d.offeredSlots = slots;
-    const [p1, p2] = inviteParts(slots);
-    lead = [...lead, p1];
-    return ask("slot", p2, "qualifier:invite");
+    const [invite] = inviteParts(slots);
+    return ask("slot", invite, "qualifier:invite");
   }
   if (!has("contact")) return ask("contact", { text: VOICE.consentConsult }, "qualifier:ask:contact");
 
@@ -243,9 +263,33 @@ export async function continueQualifier(convo: Conversation, ctx: QualCtx, text:
   d.skipped = [...(d.skipped ?? [])];
   d.questions = [...(d.questions ?? [])];
   d.offeredSlots = [...(d.offeredSlots ?? [])];
-  const pending = d.pending;
+  let pending = d.pending;
   const slots = await getSlots();
   const trimmed = text.trim();
+
+  // ── ทักเอง → ตอบยอดขาย (ปุ่ม หรือพิมพ์ตัวเลข) ─────────────────────────
+  if (pending === "revenue") {
+    const entry = detectAdEntry(text);
+    if (entry && entry.segment !== "details") {
+      d.segment = entry.segment;
+      d.revenueBand = entry.revenueBand;
+      d.button = `${d.button} → ${entry.button}`;
+      if (entry.segment === "self_learn") {
+        d.pending = "use_case";
+        await save(convo.id, d);
+        return multi([{ text: SCRIPT.selfOpen, replies: USECASE_BUTTONS }], "qualifier:open:self_learn");
+      }
+      d.pending = "task";
+      await save(convo.id, d);
+      return multi(
+        [{ text: VOICE.taskQ, replies: entry.segment === "small" ? TASK_BUTTONS_SMALL : TASK_BUTTONS }],
+        `qualifier:open:${entry.segment}`,
+      );
+    }
+    // ไม่ได้ตอบยอดขาย แต่เล่างาน/ถามมา → ถือเป็นคำตอบช่อง "งาน" (ยอดขายไปถามตอนคุย)
+    pending = "task";
+    d.pending = "task";
+  }
 
   // ── ช่องติดต่อ: ดึงเบอร์/LINE/อีเมลก่อนเสมอ ───────────────────────────
   if (pending === "contact") {

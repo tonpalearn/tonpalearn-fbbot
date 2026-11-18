@@ -63,9 +63,10 @@ describe("ด่าน 1 ตาม BOT-VOICE: คำถามแรกแบบ�
 
   it("กลุ่ม <10M: ประโยคราคา 14,000 ของต้น + คำถามแยกเป็นข้อความที่ 2 (มีปุ่มอยากเรียนเอง)", () => {
     const o = openingParts({ segment: "small", button: "x", revenueBand: null });
-    expect(o.parts[0].text).toBe(SCRIPT.smallOpen);
-    expect(o.parts[0].text).toContain("14,000 บาท");
-    expect(o.parts[1].replies?.map((r) => r.title)).toContain("อยากเรียนเอง");
+    // บทเรียนแชทสด 18 พ.ย.: ข้อความเดียว ไม่มีราคาก่อนลูกค้าถาม
+    expect(o.parts).toHaveLength(1);
+    expect(o.parts[0].text).not.toContain("14,000");
+    expect(o.parts[0].replies?.map((r) => r.title)).toContain("อยากเรียนเอง");
   });
 
   it("ทุกปุ่มยาวไม่เกิน 20 ตัวอักษร (ลิมิต Messenger) และไม่ถูกตัด", () => {
@@ -188,10 +189,11 @@ describe("ช่องเวลาว่าง (settings.meeting_slots)", () => 
   });
   it("ชวนนัดด่าน 4 มีบรรทัดคุยฟรีตามคำต้น + 2 ตัวเลือก + ปุ่ม", () => {
     const p = inviteParts(["พฤหัส 20 พ.ย. 14:00", "ศุกร์ 21 พ.ย. 10:00"]);
-    expect(p[0].text).toBe(SCRIPT.invite1);
-    expect(p[1].text).toContain(FREE_CALL_LINE);
-    expect(p[1].text).toContain("สะดวก พฤหัส 20 พ.ย. 14:00 หรือ ศุกร์ 21 พ.ย. 10:00 ครับ");
-    expect(p[1].replies?.map((r) => r.title)).toEqual(["พฤหัส 20 พ.ย. 14:00", "ศุกร์ 21 พ.ย. 10:00", "ไม่สะดวกทั้งคู่"]);
+    expect(p).toHaveLength(1);
+    expect(p[0].text).toContain(SCRIPT.invite1);
+    expect(p[0].text).toContain(FREE_CALL_LINE);
+    expect(p[0].text).toContain("สะดวก พฤหัส 20 พ.ย. 14:00 หรือ ศุกร์ 21 พ.ย. 10:00 ครับ");
+    expect(p[0].replies?.map((r) => r.title)).toEqual(["พฤหัส 20 พ.ย. 14:00", "ศุกร์ 21 พ.ย. 10:00", "ไม่สะดวกทั้งคู่"]);
   });
 });
 
@@ -214,7 +216,10 @@ describe("ร่างตามรอบ 2 + สรุป", () => {
     const d = newDraft({ segment: "big", button: "x", revenueBand: null }, "task");
     expect(roundTwoDraft(d)).toContain("ยังสนใจเอา AI มาช่วยงานในบริษัทอยู่ไหมครับ");
     d.fields.pain = "รวมยอด";
-    expect(roundTwoDraft(d)).toContain("ยังสนใจเรื่อง[ปัญหา]อยู่ไหมครับ");
+    expect(roundTwoDraft(d)).toContain('ยังสนใจเรื่อง "รวมยอด" อยู่ไหมครับ');
+    d.fields.pain = "ต้องรวมยอดขายจาก Excel หลายสาขาทุกเช้า ใช้คนสองคนครึ่งวันทุกวัน";
+    d.fields.task = undefined;
+    expect(roundTwoDraft(d)).toContain("ยังสนใจเรื่อง[ปัญหา]อยู่ไหมครับ"); // ยาวไป → ให้ต้นเติม
     const s = newDraft({ segment: "self_learn", button: "x", revenueBand: null }, "use_case");
     s.recommended = ["04"];
     expect(roundTwoDraft(s)).toContain("ยังสนใจเรียนLINE ChatBotอยู่ไหมครับ");

@@ -233,6 +233,7 @@ export const SEGMENT_LABEL: Record<string, string> = {
   small: "ธุรกิจต่ำกว่า 10 ล้าน",
   self_learn: "อยากเรียนเอง",
   details: "ขอตัวอย่างงาน",
+  open: "ทักเอง (ยังไม่รู้ยอดขาย)",
 };
 
 export function SegmentChip({ segment }: { segment: string | null }) {

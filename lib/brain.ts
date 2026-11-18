@@ -25,7 +25,7 @@ import {
 import * as store from "./store";
 import type { Conversation } from "./store";
 import { VOICE, detectAdEntry, isBotQuestion, isLikelyName, isQualDraft, looksLikeQuestion, type OutPart } from "./qualifier";
-import { continueQualifier, finishQualifier, startQualifier } from "./qualifier-flow";
+import { continueQualifier, finishQualifier, startOpenQualifier, startQualifier } from "./qualifier-flow";
 
 export type BotAction =
   | { kind: "text"; text: string; source: string; confidence?: number }
@@ -160,6 +160,7 @@ export async function handleIncoming(msg: IncomingMessage): Promise<BotAction> {
     return startQualifier(convo, adEntry);
   }
 
+
   // ── ชั้น 4: กติกาคำสำคัญ ─────────────────────────────────────────────
   const rules = await store.getActiveRules(msg.pageId);
   const hit = matchRule(text, rules);
@@ -180,6 +181,13 @@ export async function handleIncoming(msg: IncomingMessage): Promise<BotAction> {
     if (hit.reply_text) {
       return { kind: "text", text: hit.reply_text, source: `rule:${hit.name}`, confidence: 1 };
     }
+  }
+
+  // ── ชั้น 4b: คนใหม่ทักเข้ามาเอง (ไม่ได้กดปุ่มแอด) → เข้าโฟลว์คัดลูกค้า (กติกาของต้นมาก่อน · มาก่อน FAQ) ──
+  // บทเรียนแชทสด 18 พ.ย. 69: เดิมข้อความพิมพ์เองตกไปโอนหาคนทุกห้อง ลูกค้ารอแล้วเงียบ
+  if (convo.state === "bot_active" && text.trim() !== "") {
+    const history = await store.getHistory(convo.id, 2);
+    if (history.length <= 1) return startOpenQualifier(convo, { contactId, psid: msg.psid }, text);
   }
 
   // ── ชั้น 5: คำถามที่ถามบ่อย ──────────────────────────────────────────

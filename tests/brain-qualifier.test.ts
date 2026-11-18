@@ -119,7 +119,7 @@ describe("4 ปุ่มยอดขาย → ด่าน 1 ตาม BOT-VOIC
   it.each([
     ["100 ล้านขึ้นไป", VOICE.taskQ],
     ["10–100 ล้าน", VOICE.taskQ],
-    ["ต่ำกว่า 10 ล้าน", SCRIPT.smallOpen],
+    ["ต่ำกว่า 10 ล้าน", VOICE.taskQ], // บทเรียนแชทสด: ไม่บอกราคาก่อนลูกค้าถาม
     ["อยากเรียน AI เอง", SCRIPT.selfOpen],
   ])("%s", async (button, first) => {
     const out = await say(button);
@@ -139,7 +139,7 @@ describe("กลุ่ม 10M+ ถาม 4 ข้อ → ส่งต่อต�
       "โรงงานผลิตอาหารแช่แข็ง",
       "081-234-5678",
     );
-    expect(texts(out[1])).toEqual([VOICE.pain]);
+    expect(texts(out[1])).toEqual([`ได้ครับ เรื่อง "งานในโรงงาน"\n${VOICE.pain}`]);
     expect(texts(out[2])).toEqual([VOICE.businessType]);
     expect(texts(out[3])[0]).toContain("ที่ใกล้สุดที่ผมมีตอนนี้คือโรงสี คนละอุตสาหกรรมกัน");
     expect(texts(out[3])[1]).toBe(VOICE.consentConsult);
@@ -154,7 +154,8 @@ describe("กลุ่ม 10M+ ถาม 4 ข้อ → ส่งต่อต�
     const summary = notifyMock.mock.calls[0][0];
     expect(summary).toContain("ชื่อในโปรไฟล์: สมมติ ทดสอบ");
     expect(summary).toContain("ร่างตามรอบ 2");
-    expect(summary).toContain("ยังสนใจเรื่อง[ปัญหา]อยู่ไหมครับ");
+    // ปัญหายาวเกิน 40 ตัว → ใช้คำงานที่ลูกค้าเลือกแทน ต้นกดส่งได้เลย
+    expect(summary).toContain('ยังสนใจเรื่อง "งานในโรงงาน" อยู่ไหมครับ');
     expect(state.conversation).toMatchObject({ followup_draft: expect.stringContaining("ผมจะไม่ทักซ้ำ") });
   });
 
@@ -163,9 +164,10 @@ describe("กลุ่ม 10M+ ถาม 4 ข้อ → ส่งต่อต�
     const out = await chat("100 ล้านขึ้นไป", "สรุปตัวเลขผู้บริหาร", "รวมยอดขายจากหลายสาขา", "กลุ่มบริษัท 3 บริษัท");
     const invite = texts(out[3]);
     expect(invite[0]).toBe(CASES.group.text);
-    expect(invite[1]).toBe(SCRIPT.invite1);
-    expect(invite[2]).toContain(FREE_CALL_LINE);
-    expect(invite[2]).toContain("สะดวก ศุกร์ 20 พ.ย. 14:00 หรือ อังคาร 24 พ.ย. 10:00 ครับ");
+    expect(invite).toHaveLength(2); // เคส + ชวนนัดในข้อความเดียว
+    expect(invite[1]).toContain(SCRIPT.invite1);
+    expect(invite[1]).toContain(FREE_CALL_LINE);
+    expect(invite[1]).toContain("สะดวก ศุกร์ 20 พ.ย. 14:00 หรือ อังคาร 24 พ.ย. 10:00 ครับ");
     const tail = await chat("อังคาร 24 พ.ย. 10:00", "LINE: test.line");
     expect(texts(tail[0])).toEqual([VOICE.consentConsult]);
     expect(tail[1]).toMatchObject({ kind: "handoff", text: "อังคาร 24 พ.ย. 10:00 นะครับ เดี๋ยวผมส่งลิงก์ Zoom ให้ในแชทนี้" });
@@ -189,8 +191,8 @@ describe("(b) เจ้าของโรงงานถามตัวอย่
     expect(texts(o2[2])).toEqual([VOICE.detailsUnknown]);
     const ex = texts(o2[3]);
     expect(ex[0]).toContain("คนละอุตสาหกรรมกัน");
-    expect(ex[1]).toBe(VOICE.casePrivacy);
-    expect(ex[2]).toContain(FREE_CALL_LINE);
+    expect(ex[0]).toContain(VOICE.casePrivacy);
+    expect(ex[1]).toContain(FREE_CALL_LINE);
     expect(out.length).toBe(4);
 
     const si = await say("SI?");
@@ -203,7 +205,7 @@ describe("(b) เจ้าของโรงงานถามตัวอย่
   it("ตัวอย่าง (ไม่มีช่องเวลาว่าง) → เคส + ไม่เปิดชื่อ + 'เดี๋ยวผมเข้ามาเสนอเวลา' แล้วส่งต่อ", async () => {
     const out = await chat("100 ล้านขึ้นไป", "ขอดูผลงานหน่อยครับ", "บริษัทประกันชีวิต");
     expect(out[2].kind).toBe("handoff");
-    expect(texts(out[2])).toEqual([CASES.insurance.text, VOICE.casePrivacy, expect.stringContaining("เดี๋ยวผมเข้ามาเสนอเวลาในแชทนี้")]);
+    expect(texts(out[2])).toEqual([`${CASES.insurance.text}\n${VOICE.casePrivacy}`, expect.stringContaining("เดี๋ยวผมเข้ามาเสนอเวลาในแชทนี้")]);
     expect(all(out[2])).toContain(FREE_CALL_LINE);
   });
 });
@@ -302,7 +304,7 @@ describe("รั้วกันโมเดลแต่ง", () => {
 
   it("โมเดลล้ม / ถึงเพดาน → เดินต่อด้วยกติกาตายตัว", async () => {
     extractMock.mockRejectedValueOnce(new Error("429"));
-    expect(texts((await chat("100 ล้านขึ้นไป", "งานในโรงงาน"))[1])).toEqual([VOICE.pain]);
+    expect(texts((await chat("100 ล้านขึ้นไป", "งานในโรงงาน"))[1])).toEqual([`ได้ครับ เรื่อง "งานในโรงงาน"\n${VOICE.pain}`]);
     reset();
     state.aiCallsToday = 9999;
     extractMock.mockClear();
@@ -331,5 +333,50 @@ describe("ส่งไฟล์มา", () => {
     });
     state.conversation.state = "human_active";
     expect((await handleAttachment({ pageId: "P1", psid: "u", text: "", mid: "a2" })).kind).toBe("silent");
+  });
+});
+
+describe("ทักเข้ามาเอง ไม่ได้กดปุ่มแอด (บทเรียนแชทสด 18 พ.ย. 69)", () => {
+  it("ทักทายเฉย ๆ → ข้อความเดียว ถามยอดขาย + 4 ปุ่ม · กดปุ่มแล้วเข้าโฟลว์ปกติ", async () => {
+    const out = await chat("สวัสดีครับ", "100 ล้านขึ้นไป");
+    expect(texts(out[0])).toEqual([VOICE.openHello]);
+    expect(out[0].kind === "multi" && out[0].parts[0].replies?.map((r) => r.title)).toEqual([
+      "ต่ำกว่า 10 ล้าน",
+      "10–100 ล้าน",
+      "100 ล้านขึ้นไป",
+      "อยากเรียน AI เอง",
+    ]);
+    expect(texts(out[1])).toEqual([VOICE.taskQ]);
+    expect(state.conversation.state).toBe("collecting_lead");
+  });
+
+  it("บอกงานมาเลย → สะท้อนคำลูกค้า + ถามข้อเดียว (ไม่ส่งเมนูบริการ ไม่บอกราคา)", async () => {
+    const out = await chat("Automation โรงงาน", "ทำรายงานผลิตทุกเช้า", "โรงงานชิ้นส่วนพลาสติก", "0812345678");
+    expect(texts(out[0])).toEqual([`ได้ครับ เรื่อง "Automation โรงงาน"\n${VOICE.pain}`]);
+    expect(all(out[0])).not.toMatch(/Training|Consult|บาท/);
+    expect(texts(out[1])).toEqual([VOICE.businessType]);
+    expect(out[3].kind).toBe("handoff");
+    expect(state.savedLeads[0]).toMatchObject({ segment: "open", phone: "0812345678" });
+  });
+
+  it("ข้อความแรกถาม SI → ตอบให้จบก่อน (ไม่โยนหาคนทันที)", async () => {
+    const out = await say("เป็น SI เหรอครับ");
+    expect(texts(out)).toEqual([VOICE.si1, VOICE.si2]);
+    expect(state.conversation.state).toBe("collecting_lead");
+  });
+
+  it("ข้อความแรกขอภาพรวม → ส่งภาพรวมทันที (รับปากแล้วต้องส่ง)", async () => {
+    const out = await say("ขอสรุปภาพรวมก่อนครับ");
+    expect(all(out)).toContain(VOICE.overview);
+  });
+
+  it("ทักทาย แล้วพิมพ์ยอดขายเอง", async () => {
+    const out = await chat("สนใจครับ", "ประมาณ 50 ล้าน");
+    expect(texts(out[1])).toEqual([VOICE.taskQ]);
+  });
+
+  it("ทักทาย แล้วเล่างานแทนการตอบยอดขาย → ถือเป็นงาน แล้วถามต่อ", async () => {
+    const out = await chat("สวัสดีครับ", "อยากให้ AI ช่วยตอบแชทลูกค้า");
+    expect(texts(out[1])[0]).toContain('เรื่อง "อยากให้ AI ช่วยตอบแชทลูกค้า"');
   });
 });

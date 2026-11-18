@@ -25,10 +25,10 @@ export const FREE_FIRST_CALL = true;
 export const PRICE_COPY: "original" | "panel" =
   process.env.PRICE_COPY === "panel" ? "panel" : "original";
 
-export type Segment = "big" | "small" | "self_learn" | "details";
+export type Segment = "big" | "small" | "self_learn" | "details" | "open";
 export type QField = "task" | "pain" | "business_type" | "use_case" | "format" | "slot" | "contact";
 /** ช่องที่กำลังรอคำตอบ: ช่องข้อมูล หรือคำถามย่อยจากคำตอบพิเศษ */
-export type Pending = QField | "it_team" | "workflow_task" | "think_reason";
+export type Pending = QField | "it_team" | "workflow_task" | "think_reason" | "revenue";
 
 export type Reply = { title: string; payload: string };
 export interface OutPart {
@@ -146,7 +146,25 @@ export const VOICE = {
   isBot: "ตอนนี้เป็นระบบตอบอัตโนมัติครับ เดี๋ยวผม (ต้น) เข้ามาตอบเองในแชทนี้",
   // 3.8 เวลานัด
   slotNone: "ได้ครับ สะดวกช่วงไหนบอกมาได้เลย เดี๋ยวผมดูให้",
+  // 3.9 ทักเข้ามาเอง ไม่ได้กดปุ่ม (บทเรียนจากแชทสด 18 พ.ย. 69 — LIVE-CHAT-LESSONS.md)
+  openHello: "สวัสดีครับ ผมต้น TONPALEARN\nธุรกิจของคุณยอดขายต่อปีประมาณไหนครับ ผมจะได้เล่าตัวอย่างที่ใกล้กับงานคุณ",
 } as const;
+
+/** สะท้อนคำของลูกค้ากลับก่อนถามต่อ (ไม่ส่งเมนูบริการ) — ตัดยาวเกินออก */
+export function reflectTask(task: string, question: string = VOICE.pain): string {
+  const t = task.replace(/\s+/g, " ").trim().replace(/\s*(นะ)?(ครับผม|ครับ|ค่ะ|คะ|จ้า)\s*$/u, "");
+  if (t === "") return question;
+  const short = t.length > 40 ? `${t.slice(0, 38)}…` : t;
+  return `ได้ครับ เรื่อง "${short}"\n${question}`;
+}
+
+/** ข้อความแรกที่เป็นแค่คำทักทาย/สนใจ (ยังไม่บอกงาน) */
+export function isGreetingOnly(text: string): boolean {
+  const c = normalize(text).replace(/\s+/g, "").replace(/[!.~ๆ😊🙏👍]+/gu, "");
+  if (c === "") return true;
+  return /^(สวัสดี|หวัดดี|ดีครับ|ดีค่ะ|hello|hi|สนใจ|สอบถาม|ขอสอบถาม|ขอข้อมูล|ขอรายละเอียดหน่อย|อยากทราบ|ครับ|ค่ะ|คะ|ok|โอเค)(ครับ|ค่ะ|คะ|จ้า|นะ|หน่อย|คับ|ครับผม|ค่า)*$/.test(c) ||
+    c.length <= 3;
+}
 
 const SLOT_NONE_TITLE = "ไม่สะดวกทั้งคู่";
 
@@ -167,6 +185,8 @@ export const USECASE_BUTTONS = qr(["งานเอกสาร", "ทำคอ�
 export const IT_BUTTONS = qr(["มีทีม IT", "ไม่มี"], "Q_IT");
 export const THINK_BUTTONS = qr(["เรื่องงบ", "เรื่องเวลา", "ไม่แน่ใจว่าช่วยได้"], "Q_THINK");
 export const FORMAT_BUTTONS = qr(["Online", "Onsite"], "Q_FMT");
+/** ชื่อปุ่มต้องตรงกับที่ detectAdEntry() จับได้ */
+export const REVENUE_BUTTONS = qr(["ต่ำกว่า 10 ล้าน", "10–100 ล้าน", "100 ล้านขึ้นไป", "อยากเรียน AI เอง"], "Q_REV");
 
 export function slotButtons(slots: string[]): Reply[] {
   return [...slots.map((s, i) => ({ title: s.slice(0, 20), payload: `Q_SLOT_${i + 1}` })), {
@@ -212,7 +232,8 @@ export function inviteNoSlot(leadLine: string): string {
 
 /** ด่าน 4 แบบมีช่องเวลา (เรียกเมื่อมีอย่างน้อย 2 ช่อง) */
 export function inviteParts(slots: string[]): OutPart[] {
-  return [{ text: SCRIPT.invite1 }, { text: `${freeLead()}${twoSlots(slots)}`, replies: slotButtons(slots) }];
+  // ข้อความเดียว: เหตุผลที่ควรคุย + 2 เวลาให้เลือก (บทเรียนแชทสด: เวลาเจาะจงทำให้ลูกค้าตอบ)
+  return [{ text: `${SCRIPT.invite1}\n${freeLead()}${twoSlots(slots)}`, replies: slotButtons(slots) }];
 }
 
 // ── จับปุ่มยอดขาย/ข้อความแนวเดียวกัน ────────────────────────────────────────
@@ -261,10 +282,10 @@ export function openingParts(entry: AdEntry): { parts: OutPart[]; pending: Pendi
     case "big":
       return { parts: [{ text: VOICE.taskQ, replies: TASK_BUTTONS }], pending: "task" };
     case "small":
-      return {
-        parts: [{ text: SCRIPT.smallOpen }, { text: VOICE.taskQSmall, replies: TASK_BUTTONS_SMALL }],
-        pending: "task",
-      };
+      // บทเรียนแชทสด: ห้ามบอกราคาก่อนลูกค้าถาม · ข้อความเดียว คำถามเดียว (SCRIPT.smallOpen ใช้ตอนถามราคาเท่านั้น)
+      return { parts: [{ text: VOICE.taskQ, replies: TASK_BUTTONS_SMALL }], pending: "task" };
+    case "open":
+      return { parts: [{ text: VOICE.openHello, replies: REVENUE_BUTTONS }], pending: "revenue" };
     case "self_learn":
       return { parts: [{ text: SCRIPT.selfOpen, replies: USECASE_BUTTONS }], pending: "use_case" };
     case "details":
@@ -537,12 +558,14 @@ const SEGMENT_LABEL: Record<Segment, string> = {
   small: "ธุรกิจต่ำกว่า 10 ล้าน",
   self_learn: "อยากเรียน AI เอง",
   details: "ขอรายละเอียด/ตัวอย่างงาน",
+  open: "ทักเข้ามาเอง (ยังไม่รู้ยอดขาย)",
 };
 
 const SUMMARY_FIELDS: Record<Segment, QField[]> = {
   big: ["task", "pain", "business_type", "slot", "contact"],
   small: ["task", "pain", "business_type", "slot", "contact"],
   details: ["task", "pain", "business_type", "slot", "contact"],
+  open: ["task", "pain", "business_type", "slot", "contact"],
   self_learn: ["use_case", "format", "contact"],
 };
 
@@ -558,7 +581,12 @@ export function roundTwoDraft(d: QualDraft): string {
       : "ยังสนใจเรียน[ชื่อคอร์ส]อยู่ไหมครับ ถ้าตอนนี้ยังไม่ใช่จังหวะ บอกได้เลยนะครับ ผมจะไม่ทักซ้ำ";
   }
   if (d.fields.pain || d.fields.task) {
-    return "ยังสนใจเรื่อง[ปัญหา]อยู่ไหมครับ ถ้าตอนนี้ยังไม่ใช่จังหวะ บอกได้เลยนะครับ ผมจะไม่ทักซ้ำ";
+    // ใช้คำของลูกค้าเองในเครื่องหมายคำพูด (สั้นพอ) → ต้นกดส่งได้เลย · ยาวไป = เว้น [ปัญหา] ให้ต้นเติม
+    const own = [d.fields.pain, d.fields.task]
+      .map((v) => (v ?? "").replace(/\s+/g, " ").trim())
+      .find((v) => v.length >= 3 && v.length <= 40 && !/[[\]{}]/.test(v));
+    const topic = own ? ` "${own}" ` : "[ปัญหา]";
+    return `ยังสนใจเรื่อง${topic}อยู่ไหมครับ ถ้าตอนนี้ยังไม่ใช่จังหวะ บอกได้เลยนะครับ ผมจะไม่ทักซ้ำ`;
   }
   return "ยังสนใจเอา AI มาช่วยงานในบริษัทอยู่ไหมครับ ถ้าตอนนี้ยังไม่ใช่จังหวะ บอกได้เลยนะครับ ผมจะไม่ทักซ้ำ";
 }
