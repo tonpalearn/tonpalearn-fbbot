@@ -1,8 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { use, useState } from "react";
-import { api, ErrorBox, Loading, SourceTag, StateBadge, thaiTime, useLoad } from "@/components/ui";
+import { use, useEffect, useRef, useState } from "react";
+import { LeadFacts, type LeadLike } from "@/components/lead";
+import { IconAlert, IconBack, IconSend } from "@/components/icons";
+import {
+  api,
+  CopyButton,
+  DeadlineBadge,
+  draftDeadline,
+  ErrorBox,
+  LEAD_STATUS_LABEL,
+  LeadStatusBadge,
+  Loading,
+  Notice,
+  relTime,
+  SegmentChip,
+  SourceTag,
+  StateBadge,
+  thaiTime,
+  useLoad,
+} from "@/components/ui";
 
 interface MessageRow {
   id: string;
@@ -13,6 +31,12 @@ interface MessageRow {
   createdAt: string;
 }
 
+interface Lead extends LeadLike {
+  id: string;
+  status: string;
+  created_at: string;
+}
+
 interface Detail {
   id: string;
   state: string;
@@ -20,64 +44,11 @@ interface Detail {
   lastUserMessageAt: string | null;
   messages: MessageRow[];
   followup?: { draft: string | null; draftAt: string | null; sentAt: string | null; variant: string | null };
-}
-
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-
-/**
- * ร่างข้อความตามรอบ 2 (วันที่ 3–5) — บอตห้ามส่งเอง ต้นคัดลอกไปแก้แล้วส่งใน Business Suite
- * หลังพ้น 24 ชม. เพจส่งได้เฉพาะข้อความที่คนพิมพ์ และไม่เกิน 7 วันนับจากข้อความล่าสุดของลูกค้า
- */
-function RoundTwoDraft({ draft, lastUserMessageAt, sentAt }: { draft: string; lastUserMessageAt: string | null; sentAt: string | null }) {
-  const [copied, setCopied] = useState<"" | "ok" | "manual">("");
-  const last = lastUserMessageAt ? new Date(lastUserMessageAt).getTime() : 0;
-  const deadline = last ? new Date(last + SEVEN_DAYS_MS) : null;
-  const expired = deadline ? Date.now() > deadline.getTime() : false;
-  async function copy() {
-    let ok = false;
-    try {
-      await navigator.clipboard.writeText(draft);
-      ok = true;
-    } catch {
-      // บางเบราว์เซอร์/หน้าต่างฝังไม่ให้ใช้ clipboard API → ถอยไปวิธีเก่า
-      const ta = document.createElement("textarea");
-      ta.value = draft;
-      ta.style.position = "fixed";
-      ta.style.opacity = "0";
-      document.body.appendChild(ta);
-      ta.select();
-      try {
-        ok = document.execCommand("copy");
-      } catch {
-        ok = false;
-      }
-      ta.remove();
-    }
-    setCopied(ok ? "ok" : "manual");
-    setTimeout(() => setCopied(""), 2500);
-  }
-  return (
-    <div className="card space-y-2 p-4" data-testid="round-two-draft">
-      <p className="font-medium">ร่างตามรอบ 2 (วันที่ 3–5) — บอตไม่ส่งเอง</p>
-      <p className="select-all whitespace-pre-wrap rounded-xl p-3" style={{ background: "var(--bg)", border: "1px solid var(--line)" }}>
-        {draft}
-      </p>
-      <div className="flex flex-wrap items-center gap-3">
-        <button className="btn-gold" onClick={copy} type="button">
-          {copied === "ok" ? "คัดลอกแล้ว" : copied === "manual" ? "คัดลอกไม่ได้ — ลากเลือกข้อความเอง" : "คัดลอกข้อความ"}
-        </button>
-        <span className="soft text-[0.9rem]">
-          แทน [ปัญหา] ด้วยคำสั้น ๆ ของต้นก่อนส่ง · ส่งใน Business Suite
-          {deadline ? ` · ส่งได้ถึง ${thaiTime(deadline.toISOString())}` : ""}
-          {expired ? " (เลยกำหนดแล้ว)" : ""}
-          {sentAt ? " · บอตตามอัตโนมัติไปแล้ว 1 ครั้ง" : ""}
-        </span>
-      </div>
-    </div>
-  );
+  lead?: Lead | null;
 }
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
+const SENDER: Record<MessageRow["sender"], string> = { user: "ลูกค้า", bot: "บอต", admin: "ต้น", system: "ระบบ" };
 
 export default function ConversationPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -87,16 +58,19 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
+  const chatRef = useRef<HTMLDivElement>(null);
 
-  async function act(path: string, body?: unknown) {
+  // เปิดมาให้เห็นข้อความล่าสุดก่อน
+  useEffect(() => {
+    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
+  }, [data?.messages.length]);
+
+  async function act(path: string, body?: unknown, method = "POST") {
     setBusy(true);
     setSendError(null);
     setNotice(null);
     try {
-      const res = await api<{ note?: string | null }>(path, {
-        method: "POST",
-        body: JSON.stringify(body ?? {}),
-      });
+      const res = await api<{ note?: string | null }>(path, { method, body: JSON.stringify(body ?? {}) });
       if (res.note) setNotice(res.note);
       await reload();
       return true;
@@ -115,130 +89,203 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
     if (okSent) setText("");
   }
 
-  if (loading) return <Loading />;
+  if (loading && !data) return <Loading rows={4} />;
   if (error) return <ErrorBox message={error} onRetry={reload} />;
   if (!data) return null;
 
   const lastAt = data.lastUserMessageAt ? new Date(data.lastUserMessageAt).getTime() : 0;
   const outsideWindow = lastAt === 0 || Date.now() - lastAt > WINDOW_MS;
+  const draft = data.followup?.draft ?? null;
+  const dl = draftDeadline(data.lastUserMessageAt);
+  const holding = data.state === "human_active";
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-3">
-        <Link href="/admin/inbox" className="btn-quiet">
-          ← กลับ
+    <div className="space-y-4">
+      {/* หัว: กลับ · ชื่อ · สถานะ · ปุ่มถือสาย */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <Link href="/admin/inbox" className="btn-ghost px-2" aria-label="กลับไปกล่องข้อความ">
+          <IconBack />
         </Link>
-        <h1 className="text-xl font-semibold">{data.name}</h1>
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-[1.4rem] font-semibold">{data.name}</h1>
+          <p className="soft text-[0.9rem]">ลูกค้าพิมพ์ล่าสุด {relTime(data.lastUserMessageAt)}</p>
+        </div>
+        <div className="flex basis-full items-center justify-between gap-2 sm:basis-auto sm:justify-end">
         <StateBadge state={data.state} />
-        <div className="ml-auto flex gap-2">
-          {data.state !== "human_active" ? (
-            <button
-              className="btn-gold"
-              disabled={busy}
-              onClick={() => act(`/api/admin/conversations/${id}/takeover`)}
-            >
-              ขอคุยเอง
-            </button>
-          ) : (
-            <button
-              className="btn-quiet"
-              disabled={busy}
-              onClick={() => act(`/api/admin/conversations/${id}/release`)}
-            >
-              คืนให้บอต
-            </button>
-          )}
+        {holding ? (
+          <button className="btn-quiet" disabled={busy} onClick={() => act(`/api/admin/conversations/${id}/release`)}>
+            คืนให้บอต
+          </button>
+        ) : (
+          <button className="btn-gold" disabled={busy} onClick={() => act(`/api/admin/conversations/${id}/takeover`)}>
+            ขอคุยเอง
+          </button>
+        )}
         </div>
       </div>
+
+      {/* 1 · การ์ดสรุปผู้สนใจ */}
+      {data.lead ? (
+        <LeadCard lead={data.lead} onStatus={(s) => act(`/api/admin/leads/${data.lead!.id}`, { status: s }, "PUT")} busy={busy} />
+      ) : (
+        <p className="card-quiet soft px-4 py-3 text-[0.95rem]">ห้องนี้ยังไม่มีข้อมูลผู้สนใจ (บอตยังเก็บไม่ครบ หรือเป็นแชททั่วไป)</p>
+      )}
 
       {outsideWindow && (
-        <div className="card p-4" style={{ borderColor: "#b4691a" }}>
-          <p className="font-medium" style={{ color: "#b4691a" }}>
-            เลย 24 ชั่วโมงนับจากข้อความล่าสุดของลูกค้าแล้ว
-          </p>
-          <p className="soft mt-1 text-[0.95rem]">
-            Facebook จำกัดว่าเลยช่วงนี้จะส่งข้อความธรรมดาไม่ได้ ระบบจะลองส่งแบบ
-            “เจ้าหน้าที่ติดต่อกลับ” ให้ แต่ถ้าเพจยังไม่ได้รับสิทธิ์นั้นจะส่งไม่ผ่าน —
-            แนะนำให้ติดต่อทางเบอร์หรืออีเมลที่เก็บไว้ในหน้าผู้สนใจแทนครับ
-          </p>
+        <div className="card flex gap-3 p-4" role="note" style={{ borderColor: "var(--amber-line)", background: "var(--amber-soft)" }}>
+          <span style={{ color: "var(--amber)" }} className="mt-0.5">
+            <IconAlert />
+          </span>
+          <div>
+            <p className="font-medium" style={{ color: "var(--amber)" }}>
+              เลย 24 ชั่วโมงนับจากข้อความล่าสุดของลูกค้าแล้ว
+            </p>
+            <p className="mt-0.5 text-[0.95rem]">
+              Facebook ไม่ให้ส่งข้อความธรรมดาแล้ว ระบบจะลองส่งแบบ “เจ้าหน้าที่ติดต่อกลับ” ให้ แต่ถ้าเพจยังไม่ได้สิทธิ์นั้นจะส่งไม่ผ่าน —
+              ติดต่อทางเบอร์หรือ LINE ในการ์ดด้านบนแทนได้
+            </p>
+          </div>
         </div>
       )}
 
-      {data.followup?.draft && (
-        <RoundTwoDraft
-          draft={data.followup.draft}
-          lastUserMessageAt={data.lastUserMessageAt}
-          sentAt={data.followup.sentAt}
-        />
-      )}
-
-      {notice && (
-        <p className="soft text-[0.95rem]" style={{ color: "#b4691a" }}>
-          {notice}
-        </p>
-      )}
-
-      <div className="card space-y-3 p-4">
-        {data.messages.length === 0 && <p className="soft">ยังไม่มีข้อความในบทสนทนานี้</p>}
-        {data.messages.map((m) => (
-          <div
-            key={m.id}
-            className={m.direction === "in" ? "flex justify-start" : "flex justify-end"}
-          >
-            <div
-              className="max-w-[85%] rounded-2xl px-4 py-2"
-              style={{
-                background:
-                  m.direction === "in"
-                    ? "var(--bg)"
-                    : m.sender === "admin"
-                      ? "var(--accent-weak)"
-                      : "var(--accent-weak)",
-                border: "1px solid var(--line)",
-              }}
-            >
-              <p className="whitespace-pre-wrap">{m.content}</p>
-              <div className="mt-1 flex items-center gap-2">
-                <span className="soft text-[0.8rem]">
-                  {m.sender === "user"
-                    ? "ลูกค้า"
-                    : m.sender === "bot"
-                      ? "บอต"
-                      : m.sender === "admin"
-                        ? "แอดมิน"
-                        : "ระบบ"}
-                </span>
-                <SourceTag source={m.answerSource} />
-                <span className="soft ml-auto text-[0.8rem]">{thaiTime(m.createdAt)}</span>
-              </div>
-            </div>
+      {/* 2 · ร่างตามรอบ 2 (บอตไม่ส่งเอง) */}
+      {draft && (
+        <section className="card space-y-3 p-4" data-testid="round-two-draft" aria-labelledby="draft-h">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 id="draft-h" className="font-semibold">
+              ร่างตามรอบ 2 (วันที่ 3–5) — ต้นส่งเอง
+            </h2>
+            <DeadlineBadge deadline={dl.deadline} level={dl.level} />
           </div>
-        ))}
-      </div>
+          <p
+            className="select-all whitespace-pre-wrap rounded-xl p-3"
+            style={{ background: "var(--bg)", border: "1px solid var(--line)" }}
+          >
+            {draft}
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <CopyButton text={draft} label="คัดลอกข้อความ" className="btn-gold" />
+            <span className="soft text-[0.9rem]">
+              แทน [ปัญหา] ด้วยคำสั้น ๆ ของต้นก่อนส่ง · ส่งใน Business Suite
+              {dl.deadline ? ` · ส่งได้ถึง ${thaiTime(dl.deadline)}` : ""}
+              {data.followup?.sentAt ? " · บอตตามอัตโนมัติไปแล้ว 1 ครั้ง" : ""}
+            </span>
+          </div>
+        </section>
+      )}
 
-      <form onSubmit={send} className="space-y-2">
-        <textarea
-          rows={3}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="พิมพ์ข้อความตอบลูกค้า..."
-        />
+      {notice && <Notice tone="warn">{notice}</Notice>}
+
+      {/* 3 · แชท */}
+      <section aria-label="ข้อความในแชท" className="card">
+        <div ref={chatRef} className="max-h-[62vh] space-y-3 overflow-y-auto p-4">
+          {data.messages.length === 0 && <p className="soft py-6 text-center">ยังไม่มีข้อความในบทสนทนานี้</p>}
+          {data.messages.map((m) => (m.sender === "system" ? <SystemNote key={m.id} m={m} /> : <Bubble key={m.id} m={m} />))}
+        </div>
+      </section>
+
+      {/* 4 · กล่องตอบ — ติดล่างจอ (เหนือแท็บบนมือถือ) */}
+      <form
+        onSubmit={send}
+        className="card sticky bottom-[calc(62px+env(safe-area-inset-bottom,0px))] z-20 space-y-2 p-3 lg:bottom-3"
+        style={{ boxShadow: "var(--shadow-m)" }}
+      >
+        <label htmlFor="reply" className="sr-only">
+          พิมพ์ข้อความตอบลูกค้า
+        </label>
+        <div className="flex items-end gap-2">
+          <textarea
+            id="reply"
+            rows={2}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void send(e as unknown as React.FormEvent);
+            }}
+            placeholder="พิมพ์ข้อความตอบลูกค้า..."
+          />
+          <button type="submit" className="btn-gold flex-none" disabled={busy || text.trim() === ""} aria-label="ส่งข้อความ">
+            <IconSend size={18} />
+            <span className="hidden sm:inline">{busy ? "กำลังส่ง..." : "ส่ง"}</span>
+          </button>
+        </div>
         {sendError && (
-          <p className="text-[0.95rem]" style={{ color: "#b3382f" }}>
+          <p role="alert" className="text-[0.95rem]" style={{ color: "var(--red)" }}>
             {sendError}
           </p>
         )}
-        <div className="flex items-center gap-3">
-          <button type="submit" className="btn-gold" disabled={busy || text.trim() === ""}>
-            {busy ? "กำลังส่ง..." : "ส่งข้อความ"}
-          </button>
-          {data.state !== "human_active" && (
-            <span className="soft text-[0.9rem]">
-              ตอบตอนนี้ได้ แต่บอตยังทำงานอยู่ — ถ้าจะคุยเองยาว ๆ กด “ขอคุยเอง” ก่อนครับ
-            </span>
-          )}
-        </div>
+        {!holding && (
+          <p className="soft text-[0.85rem]">ตอบได้เลย แต่บอตยังทำงานอยู่ — ถ้าจะคุยเองยาว ๆ กด “ขอคุยเอง” ก่อน</p>
+        )}
       </form>
+    </div>
+  );
+}
+
+function LeadCard({ lead, onStatus, busy }: { lead: Lead; onStatus: (s: string) => void; busy: boolean }) {
+  return (
+    <section className="card card-hot space-y-3 p-4" aria-labelledby="lead-h">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 id="lead-h" className="font-semibold">
+          สรุปผู้สนใจ
+        </h2>
+        <SegmentChip segment={lead.segment} />
+        <LeadStatusBadge status={lead.status} />
+        <span className="soft ml-auto text-[0.88rem]">เก็บได้ {thaiTime(lead.created_at)}</span>
+      </div>
+      <LeadFacts lead={lead} />
+      <div className="flex flex-wrap items-center gap-2 border-t pt-3" style={{ borderColor: "var(--line)" }}>
+        <span className="soft text-[0.9rem]">เปลี่ยนสถานะ:</span>
+        {Object.keys(LEAD_STATUS_LABEL).map((s) => (
+          <button
+            key={s}
+            type="button"
+            className="tab"
+            aria-pressed={lead.status === s}
+            disabled={busy || lead.status === s}
+            onClick={() => onStatus(s)}
+          >
+            {LEAD_STATUS_LABEL[s]}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function Bubble({ m }: { m: MessageRow }) {
+  const mine = m.direction === "out";
+  const admin = m.sender === "admin";
+  return (
+    <div className={mine ? "flex justify-end" : "flex justify-start"}>
+      <div
+        className="max-w-[86%] rounded-2xl px-4 py-2.5"
+        style={{
+          background: mine ? (admin ? "var(--teal-soft)" : "var(--gold-soft)") : "var(--bg2)",
+          border: `1px solid ${mine ? (admin ? "var(--teal-line)" : "var(--gold-line)") : "var(--line)"}`,
+          borderBottomRightRadius: mine ? 6 : undefined,
+          borderBottomLeftRadius: mine ? undefined : 6,
+        }}
+      >
+        <p className="whitespace-pre-wrap break-words">{m.content}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2">
+          <span className="text-[0.82rem] font-medium">{SENDER[m.sender]}</span>
+          <SourceTag source={m.answerSource} />
+          <span className="soft tnum ml-auto text-[0.82rem]">{thaiTime(m.createdAt)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** ข้อความของระบบ (เช่น สรุปผู้สนใจ) — ลูกค้าไม่เห็น */
+function SystemNote({ m }: { m: MessageRow }) {
+  return (
+    <div className="card-quiet mx-auto max-w-[92%] px-4 py-2 text-[0.92rem]">
+      <p className="soft mb-0.5 text-[0.8rem]">
+        <SourceTag source={m.answerSource ?? "system"} /> · {thaiTime(m.createdAt)}
+      </p>
+      <p className="whitespace-pre-wrap break-words">{m.content}</p>
     </div>
   );
 }

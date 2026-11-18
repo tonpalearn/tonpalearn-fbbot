@@ -497,8 +497,9 @@ stateDiagram-v2
 | POST | `/api/admin/login` | `{"passcode":"..."}` | 200 + ตั้งคุกกี้ / 401 / 429 เมื่อเดารหัสถี่เกิน |
 | POST | `/api/admin/logout` | – | 200 |
 | GET | `/api/admin/stats` | – | `{messagesToday, unreadConversations, newLeadsThisWeek, aiCallsToday, aiCallCap, answerMix{...}}` |
-| GET | `/api/admin/conversations?state=&limit=` | – | `{items:[{id,name,state,unread,lastMessage,lastMessageAt}]}` |
-| GET | `/api/admin/conversations/[id]` | – | `{id,state,name,lastUserMessageAt,messages:[...]}` |
+| GET | `/api/admin/today` | – | `{waiting[], leads[], draftsSoon[], draftsLater[], draftsExpired, status{botEnabled,pageRegistered,lastBotReplyAt,lastCustomerMessageAt,webhookErrors24h,messagesToday,aiCallsToday,aiCallCap}, generatedAt}` · ตรรกะจัดลำดับ `lib/today.ts` |
+| GET | `/api/admin/conversations?state=&limit=` | – | `{items:[{id,name,state,unread,lastMessage,lastMessageSender,lastMessageAt,lastUserMessageAt,hasDraft}]}` |
+| GET | `/api/admin/conversations/[id]` | – | `{id,state,name,lastUserMessageAt,messages:[...],followup{...},lead}` · `lead` = ผู้สนใจล่าสุดของห้อง หรือ `null` |
 | POST | `/api/admin/conversations/[id]/reply` | `{"text":"..."}` | 200 `{ok:true,usedHumanAgentTag}` / 422 เลย 24 ชม. / 502 Facebook ปฏิเสธ |
 | POST | `/api/admin/conversations/[id]/takeover` | – | `{ok:true,state:"human_active",note}` |
 | POST | `/api/admin/conversations/[id]/release` | – | `{ok:true,state:"bot_active"}` |
@@ -509,7 +510,7 @@ stateDiagram-v2
 | POST | `/api/admin/rules/test` | `{"text":"สนใจครับ"}` | `{specialCommand, matchedRule, explain}` |
 | GET/POST | `/api/admin/kb` | `{"title","source","content"}` | รายการ / `{id,chunkCount}` |
 | PUT/DELETE | `/api/admin/kb/[id]` | `{"is_active":false}` | `{id,is_active}` / `{ok:true}` |
-| GET | `/api/admin/leads?status=` | – | `{items:[{id,name,phone,email,line_id,interest,lead_type,status,note,created_at,conversation_id,source,segment,qualification}]}` |
+| GET | `/api/admin/leads?status=&from=&to=` (วันที่ `YYYY-MM-DD` ตามปฏิทินไทย · ใส่ช่องเดียวได้ · `to` รวมทั้งวัน) | – | `{items:[{id,name,phone,email,line_id,interest,lead_type,status,note,created_at,conversation_id,source,segment,qualification}]}` |
 | PUT | `/api/admin/leads/[id]` | `{"status":"contacted"}` | แถวที่แก้ |
 | GET/PUT | `/api/admin/settings` | `{"items":[{key,text}],"botEnabled":true}` | รายการ / `{ok:true}` |
 
@@ -522,16 +523,18 @@ stateDiagram-v2
 | หน้า | องค์ประกอบสำคัญ | การกระทำหลัก |
 |---|---|---|
 | `/admin/login` | การ์ดกลางหน้า ช่องรหัสผ่านช่องเดียว | เข้าสู่ระบบ |
-| `/admin` ภาพรวม | การ์ดตัวเลข 4 ใบ · แถบ "คำตอบมาจากไหนบ้าง" · บทสนทนาล่าสุด 10 รายการ | กดเข้าไปดูบทสนทนา |
-| `/admin/inbox` | ปุ่มกรองตามสถานะ · รายการแชทพร้อมป้ายสถานะและธงยังไม่ได้อ่าน | เลือกบทสนทนา |
-| `/admin/inbox/[id]` | ฟองข้อความสองฝั่ง · ป้ายบอกที่มาของคำตอบ · แถบเตือน 24 ชั่วโมง · กล่องพิมพ์ตอบ | ส่งข้อความ · ขอคุยเอง · คืนให้บอต |
+| `/admin` งานวันนี้ | บรรทัดสถานะบอต 1 บรรทัด · รายการงานเรียงลำดับ: ① แชทรอคนตอบ (รวมห้องที่ต้นถือสายแต่ลูกค้าพิมพ์มาล่าสุด · รอนานสุดขึ้นก่อน) ② ผู้สนใจใหม่ที่ยังไม่ได้ติดต่อ ③ ร่างตามรอบ 2 ที่เหลือ ≤ 2 วัน (ที่ยังมีเวลาแยกพับไว้ · ที่เลยกำหนดนับไว้เฉย ๆ) · คนเดียวขึ้นที่เดียว · ตัวเลขภาพรวม 4 ช่อง + "คำตอบมาจากไหน" พับไว้ด้านล่าง | ปุ่มเดียวต่องาน: เปิดแชท |
+| `/admin/inbox` | แท็บกรอง (ต้องตอบ · ยังไม่อ่าน · ทั้งหมด · ต้นคุยอยู่ · บอตดูแล · ปิดแล้ว) พร้อมจำนวน · ค้นหาชื่อ/ข้อความ · แถวยังไม่อ่านเป็นตัวหนา+พื้นทอง · เวลาตั้งแต่ลูกค้าพิมพ์ล่าสุด · ป้ายส้มเมื่อร่างรอบ 2 เหลือ ≤ 2 วัน | เลือกบทสนทนา |
+| `/admin/inbox/[id]` | การ์ดสรุปผู้สนใจบนสุด (ปุ่มที่กด · ธุรกิจ · ปัญหา · ช่องทางติดต่อกดโทร/คัดลอก LINE · เปลี่ยนสถานะ) · แถบเตือน 24 ชม. · ร่างรอบ 2 + ปุ่มคัดลอก · ฟองข้อความ + ป้ายที่มา · กล่องตอบติดล่างจอ | ส่งข้อความ · ขอคุยเอง · คืนให้บอต · เปลี่ยนสถานะผู้สนใจ |
 | `/admin/faq` | ฟอร์มเพิ่ม · การ์ดรายข้อพร้อมป้าย "ยังไม่ได้กรอก" | เพิ่ม/แก้/เปิด-ปิด/ลบ |
 | `/admin/rules` | ช่องทดลองพิมพ์ข้อความ · ฟอร์มเพิ่ม · รายการเรียงตามลำดับความสำคัญ | ทดลองจับคู่ · เพิ่ม/เปิด-ปิด/ลบ |
 | `/admin/kb` | ฟอร์มวางเนื้อหายาว · รายการเอกสาร + จำนวนท่อน | เพิ่ม (ตัดท่อนอัตโนมัติ) · เปิด-ปิด · ลบ |
-| `/admin/leads` | ปุ่มกรองตามสถานะ · การ์ดรายคน (ป้ายกลุ่มแอด + ปุ่มที่กด + ช่องที่เก็บได้ + เหตุที่ส่งต่อ + ลิงก์เปิดแชท) · ปุ่มดาวน์โหลด CSV (มี LINE + ปุ่มที่กด) | เปลี่ยนสถานะ · ส่งออก |
-| `/admin/settings` | สวิตช์เปิด/ปิดบอต · ช่องแก้ข้อความระบบ 6 ช่อง | บันทึกทั้งหมด |
+| `/admin/leads` | แท็บสถานะ · ช่องวันที่ ตั้งแต่–ถึง (วันที่เก็บข้อมูลได้) + ปุ่มล้าง · ชิปกรองกลุ่มจากปุ่มแอด · จอใหญ่ = ตาราง / มือถือ = การ์ด (ใช้ชิ้นส่วนเดียวกัน) · การ์ดรายคน (ป้ายกลุ่มแอด + ปุ่มที่กด + ช่องที่เก็บได้ + เหตุที่ส่งต่อ + ลิงก์เปิดแชท) · ปุ่มดาวน์โหลด CSV (มี LINE + ปุ่มที่กด) | เปลี่ยนสถานะ · ส่งออก |
+| `/admin/settings` | สวิตช์เปิด/ปิดบอต · ช่องเวลาว่างนัดคุย พร้อมตัวอย่างที่ชื่อวันตรงกับวันที่ (คำนวณจากวันนี้) + ตรวจทีละบรรทัดด้วย `usableSlots()` ตัวเดียวกับบอต · ข้อความระบบแบ่ง 2 กลุ่ม · ปุ่มบันทึกติดล่างจอ | บันทึกทั้งหมด |
 
-**ข้อกำหนดการอ่านออก:** ขนาดตัวอักษรฐาน 17.5px · ระยะบรรทัด 1.8 · ข้อความสำคัญห้ามจางกว่าสี `--text-soft` · ตารางหลายคอลัมน์ต้องยุบเป็นการ์ดบนจอเล็ก · ทุกหน้าต้องมีสถานะ "กำลังโหลด" และ "ยังไม่มีข้อมูล" ที่เขียนเป็นภาษาคน
+**โครงหน้า + การแสดงผล:** จอ ≥1024px แถบข้างซ้าย · จอเล็กแถบบน + แท็บล่าง 4 ช่อง (วันนี้ · แชท · ผู้สนใจ · เพิ่มเติม) · แผง "การแสดงผล" = โหมดสี 3 ทาง (ตามเครื่อง/สว่าง/มืด) + ขนาดตัวอักษร 3 ระดับ เก็บใน localStorage `fbchat_look` และใส่ก่อนวาดหน้า · ระบบสี "Quiet Paper" ชุดเดียวกับหน้า booking TONPALEARN (กระดาษ `#F7F6F2` / หมึก `#0C0E13` · ทอง = แสงเดียว) · หัวข้อ Anuphan เนื้อ IBM Plex Sans Thai · ปุ่ม/แท็บสูง ≥ 44px · วงโฟกัสทุกจุดที่กดได้
+
+**ข้อกำหนดการอ่านออก:** ขนาดตัวอักษรฐาน 17px (เล็ก 15.5 / ใหญ่ 19) · ระยะบรรทัด 1.8 · ข้อความสำคัญห้ามจางกว่าสี `--text-soft` · ตารางหลายคอลัมน์ต้องยุบเป็นการ์ดบนจอเล็ก · ทุกหน้าต้องมีสถานะ "กำลังโหลด" และ "ยังไม่มีข้อมูล" ที่เขียนเป็นภาษาคน
 
 ---
 

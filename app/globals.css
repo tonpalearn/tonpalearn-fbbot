@@ -1,127 +1,464 @@
 @import "tailwindcss";
 
-/* ── ระบบสีของงานนี้ ────────────────────────────────────────────────────
-   โทน "ตั๋วทอง บนกระดาษเงียบ" — พื้นสงบ ให้จุดที่ต้องกดเป็นแสงเดียวของหน้า
-   รองรับทั้งโหมดสว่าง/มืด ตามเครื่อง และสลับเองได้ด้วย data-theme
+/* ── ระบบสีของงานนี้: "Quiet Paper" (ชุดเดียวกับหน้า booking ของ TONPALEARN ที่ต้นรับแล้ว) ──
+   กระดาษอุ่น #F7F6F2 / หมึกเข้ม #0C0E13 · ทองเป็นแสงเดียวของหน้า (ปุ่มหลัก + จุดที่ต้องทำ)
+   ไม่มีกระจกซ้อนกระจก ไม่มี blob ไม่มี marquee
+   ค่าเริ่มต้นตามเครื่อง · ผู้ใช้เลือกเองได้ผ่าน data-theme บน <html> (แผง "การแสดงผล")
    ─────────────────────────────────────────────────────────────────────── */
 @theme {
-  --font-sans: var(--font-anuphan), ui-sans-serif, system-ui, sans-serif;
-
-  --color-ink: #16181d;
-  --color-ink-soft: #4a4f5a;
-  --color-paper: #f7f6f3;
-  --color-card: #ffffff;
-  --color-line: #e3e1db;
-  --color-gold: #b8863b;
-  --color-gold-soft: #f3e7d0;
-  --color-ok: #2f7d5d;
-  --color-warn: #b4691a;
-  --color-danger: #b3382f;
+  --font-sans: var(--font-plex), "IBM Plex Sans Thai", ui-sans-serif, system-ui, sans-serif;
+  --font-head: var(--font-anuphan), var(--font-plex), ui-sans-serif, sans-serif;
 }
 
 :root {
-  --bg: #f7f6f3;
-  --card: #ffffff;
-  --text: #16181d;
-  --text-soft: #4a4f5a;
-  --line: #e3e1db;
-  --accent: #b8863b;
-  --accent-weak: #f3e7d0;
   color-scheme: light;
+  --bg: #f7f6f2;
+  --bg2: #f0eee8;
+  --card: #ffffff;
+  --card2: #faf9f6;
+  --line: #e6e3da;
+  --line2: #d8d4c8;
+  --tx: #1d1b16;
+  --tx2: #54514a; /* 7.6:1 บนกระดาษ — ข้อความรองห้ามจางกว่านี้ */
+  --gold: #8a6d0c; /* ทองสำหรับ "ตัวอักษร" (5.0:1) */
+  --gold-soft: rgba(154, 122, 16, 0.09);
+  --gold-line: rgba(154, 122, 16, 0.38);
+  --g1: #e9b833;
+  --g2: #d99f1b;
+  --gold-ink: #231a02;
+  --teal: #0b6b60;
+  --teal-soft: rgba(14, 122, 109, 0.09);
+  --teal-line: rgba(14, 122, 109, 0.32);
+  --red: #b3261e;
+  --red-soft: rgba(179, 38, 30, 0.07);
+  --red-line: rgba(179, 38, 30, 0.3);
+  --amber: #9a4f00;
+  --amber-soft: rgba(196, 110, 0, 0.09);
+  --amber-line: rgba(196, 110, 0, 0.34);
+  --blue: #2a56a8;
+  --blue-soft: rgba(42, 86, 168, 0.08);
+  --scrim: rgba(30, 27, 20, 0.46);
+  --shadow-s: 0 1px 2px rgba(29, 27, 22, 0.05);
+  --shadow-m: 0 10px 30px -12px rgba(29, 27, 22, 0.16);
+  --focus: #9a7a10;
+
+  /* ชื่อเดิม (หน้าสาธารณะ privacy/data-deletion ยังใช้) */
+  --text: var(--tx);
+  --text-soft: var(--tx2);
+  --accent: var(--gold);
+  --accent-weak: var(--gold-soft);
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #14151a;
-    --card: #1c1e25;
-    --text: #f0eee9;
-    --text-soft: #a8adb8;
-    --line: #2e313a;
-    --accent: #d8a75a;
-    --accent-weak: #3a2f1c;
+  :root:not([data-theme="light"]) {
     color-scheme: dark;
+    --bg: #0c0e13;
+    --bg2: #10131a;
+    --card: #161a23;
+    --card2: #12161e;
+    --line: rgba(255, 255, 255, 0.09);
+    --line2: rgba(255, 255, 255, 0.17);
+    --tx: #edeff4;
+    --tx2: #a8b0bf;
+    --gold: #f1c557;
+    --gold-soft: rgba(241, 197, 87, 0.1);
+    --gold-line: rgba(241, 197, 87, 0.36);
+    --g1: #f5d67a;
+    --g2: #e0a82e;
+    --gold-ink: #1e1500;
+    --teal: #2fd4be;
+    --teal-soft: rgba(47, 212, 190, 0.1);
+    --teal-line: rgba(47, 212, 190, 0.34);
+    --red: #f58f88;
+    --red-soft: rgba(245, 143, 136, 0.1);
+    --red-line: rgba(245, 143, 136, 0.3);
+    --amber: #ffb35c;
+    --amber-soft: rgba(255, 179, 92, 0.1);
+    --amber-line: rgba(255, 179, 92, 0.34);
+    --blue: #8fb3ff;
+    --blue-soft: rgba(143, 179, 255, 0.1);
+    --scrim: rgba(4, 5, 8, 0.62);
+    --shadow-s: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-m: 0 12px 32px -12px rgba(0, 0, 0, 0.55);
+    --focus: #f1c557;
   }
 }
 
-:root[data-theme="light"] {
-  --bg: #f7f6f3;
-  --card: #ffffff;
-  --text: #16181d;
-  --text-soft: #4a4f5a;
-  --line: #e3e1db;
-  --accent: #b8863b;
-  --accent-weak: #f3e7d0;
-  color-scheme: light;
-}
-
 :root[data-theme="dark"] {
-  --bg: #14151a;
-  --card: #1c1e25;
-  --text: #f0eee9;
-  --text-soft: #a8adb8;
-  --line: #2e313a;
-  --accent: #d8a75a;
-  --accent-weak: #3a2f1c;
   color-scheme: dark;
+  --bg: #0c0e13;
+  --bg2: #10131a;
+  --card: #161a23;
+  --card2: #12161e;
+  --line: rgba(255, 255, 255, 0.09);
+  --line2: rgba(255, 255, 255, 0.17);
+  --tx: #edeff4;
+  --tx2: #a8b0bf;
+  --gold: #f1c557;
+  --gold-soft: rgba(241, 197, 87, 0.1);
+  --gold-line: rgba(241, 197, 87, 0.36);
+  --g1: #f5d67a;
+  --g2: #e0a82e;
+  --gold-ink: #1e1500;
+  --teal: #2fd4be;
+  --teal-soft: rgba(47, 212, 190, 0.1);
+  --teal-line: rgba(47, 212, 190, 0.34);
+  --red: #f58f88;
+  --red-soft: rgba(245, 143, 136, 0.1);
+  --red-line: rgba(245, 143, 136, 0.3);
+  --amber: #ffb35c;
+  --amber-soft: rgba(255, 179, 92, 0.1);
+  --amber-line: rgba(255, 179, 92, 0.34);
+  --blue: #8fb3ff;
+  --blue-soft: rgba(143, 179, 255, 0.1);
+  --scrim: rgba(4, 5, 8, 0.62);
+  --shadow-s: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-m: 0 12px 32px -12px rgba(0, 0, 0, 0.55);
+  --focus: #f1c557;
 }
 
-/* ตัวอักษรไทยต้องใหญ่และหายใจกว่าค่าเริ่มต้นของ Tailwind ไม่งั้นอ่านยาก */
+/* ตัวอักษรไทยต้องใหญ่และหายใจกว่าค่าเริ่มต้น — ปรับได้ 3 ขนาดจากแผง "การแสดงผล" (ก ก ก) */
 html {
-  font-size: 17.5px;
+  font-size: 17px;
+}
+html[data-size="sm"] {
+  font-size: 15.5px;
+}
+html[data-size="lg"] {
+  font-size: 19px;
 }
 
 body {
   background: var(--bg);
-  color: var(--text);
-  line-height: 1.8;
+  color: var(--tx);
+  line-height: 1.75;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1,
+h2,
+h3,
+.f-head {
+  font-family: var(--font-head);
+  letter-spacing: -0.01em;
+  line-height: 1.4;
 }
 
 .soft {
-  color: var(--text-soft);
+  color: var(--tx2);
+}
+.tnum {
+  font-variant-numeric: tabular-nums;
 }
 
+/* คลาสส่วนประกอบอยู่ใน @layer components — utility ของ Tailwind (px-2, justify-start ฯลฯ) จึงทับได้ */
+@layer components {
+/* ── พื้นผิว ───────────────────────────────────────────────────────── */
 .card {
   background: var(--card);
   border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow-s);
+}
+.card-quiet {
+  background: var(--card2);
+  border: 1px solid var(--line);
   border-radius: 14px;
 }
+/* แถวที่ต้องทำ = แสงเดียวของหน้า: ขอบทองซ้าย */
+.card-hot {
+  border-color: var(--gold-line);
+  box-shadow: inset 3px 0 0 var(--g2), var(--shadow-s);
+}
+.row-link {
+  display: block;
+  transition: background-color 0.15s ease;
+}
+.row-link:hover {
+  background: var(--card2);
+}
 
-.btn-gold {
-  background: var(--accent);
-  color: #1a1408;
-  border-radius: 10px;
+.eyebrow {
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--tx2);
   font-weight: 600;
-  padding: 0.55rem 1.1rem;
-  transition: filter 0.15s ease;
+}
+
+/* ── ปุ่ม: สูงอย่างน้อย 44px ทุกปุ่ม (นิ้วโป้งบนมือถือ) ───────────────── */
+.btn-gold,
+.btn-quiet,
+.btn-ghost,
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 44px;
+  border-radius: 12px;
+  padding: 0.5rem 1.05rem;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  transition:
+    background-color 0.15s ease,
+    filter 0.15s ease,
+    border-color 0.15s ease;
+  cursor: pointer;
+}
+.btn-gold {
+  background: linear-gradient(180deg, var(--g1), var(--g2));
+  color: var(--gold-ink);
+  border: 1px solid transparent;
 }
 .btn-gold:hover {
-  filter: brightness(1.07);
+  filter: brightness(1.05);
 }
 .btn-quiet {
-  border: 1px solid var(--line);
-  color: var(--text);
-  border-radius: 10px;
-  padding: 0.5rem 1rem;
-  background: transparent;
+  background: var(--card);
+  color: var(--tx);
+  border: 1px solid var(--line2);
 }
 .btn-quiet:hover {
-  background: var(--accent-weak);
+  background: var(--bg2);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--tx);
+  border: 1px solid transparent;
+}
+.btn-ghost:hover {
+  background: var(--bg2);
+}
+.btn-danger {
+  background: transparent;
+  color: var(--red);
+  border: 1px solid var(--red-line);
+}
+.btn-danger:hover {
+  background: var(--red-soft);
+}
+.btn-sm {
+  min-height: 40px;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.92rem;
+}
+.btn-gold:disabled,
+.btn-quiet:disabled,
+.btn-ghost:disabled,
+.btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: none;
 }
 
-input,
+/* ── ป้าย/ชิป ─────────────────────────────────────────────────────── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  padding: 0.1rem 0.65rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.6;
+  border: 1px solid var(--line2);
+  color: var(--tx);
+  background: var(--card2);
+  white-space: nowrap;
+}
+.chip-gold {
+  color: var(--gold);
+  background: var(--gold-soft);
+  border-color: var(--gold-line);
+}
+.chip-teal {
+  color: var(--teal);
+  background: var(--teal-soft);
+  border-color: var(--teal-line);
+}
+.chip-red {
+  color: var(--red);
+  background: var(--red-soft);
+  border-color: var(--red-line);
+}
+.chip-amber {
+  color: var(--amber);
+  background: var(--amber-soft);
+  border-color: var(--amber-line);
+}
+.chip-blue {
+  color: var(--blue);
+  background: var(--blue-soft);
+  border-color: transparent;
+}
+.dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: currentColor;
+  display: inline-block;
+  flex: none;
+}
+
+/* แท็บกรอง (segmented) — เลื่อนแนวนอนได้บนมือถือ ไม่ดันหน้ากว้างเกินจอ */
+.tabs {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+.tab {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  padding: 0.35rem 0.95rem;
+  border-radius: 999px;
+  border: 1px solid var(--line2);
+  background: var(--card);
+  color: var(--tx);
+  font-weight: 500;
+  cursor: pointer;
+}
+.tab[aria-pressed="true"],
+.tab[aria-selected="true"] {
+  background: var(--tx);
+  color: var(--bg);
+  border-color: var(--tx);
+}
+.tab .count {
+  font-size: 0.8rem;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── ฟอร์ม ─────────────────────────────────────────────────────────── */
+input:not([type="checkbox"]):not([type="radio"]),
 textarea,
 select {
   background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 0.55rem 0.8rem;
-  color: var(--text);
+  border: 1px solid var(--line2);
+  border-radius: 12px;
+  padding: 0.6rem 0.85rem;
+  color: var(--tx);
   width: 100%;
+  min-height: 46px;
+  font: inherit;
+}
+textarea {
+  line-height: 1.7;
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--tx2);
+  opacity: 0.8;
 }
 input:focus,
 textarea:focus,
 select:focus {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus);
   outline-offset: 1px;
+  border-color: transparent;
+}
+
+/* วงโฟกัสเห็นชัดทุกที่ที่กดได้ (คีย์บอร์ด) */
+:where(a, button, [role="button"], summary, input, select, textarea):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* สวิตช์เปิด/ปิด */
+.switch {
+  position: relative;
+  width: 52px;
+  height: 30px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--line2);
+  border: none;
+  transition: background-color 0.15s ease;
+  cursor: pointer;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease;
+}
+.switch[aria-checked="true"] {
+  background: var(--teal);
+}
+.switch[aria-checked="true"]::after {
+  transform: translateX(22px);
+}
+
+/* โครงกำลังโหลด */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg2), var(--card2), var(--bg2));
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 10px;
+}
+@keyframes shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+/* ตารางจอใหญ่ */
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.table th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--tx2);
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--card2);
+  white-space: nowrap;
+}
+.table td {
+  padding: 0.85rem 0.9rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+/* แถบล่างบนมือถือ: เผื่อขอบล่างของ iPhone */
+.pb-safe {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.25rem);
+}
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }

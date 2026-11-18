@@ -55,6 +55,8 @@ export interface ConversationSummary {
   lastMessage: string;
   lastMessageSender: string | null;
   lastMessageAt: string | null;
+  /** มีร่างตามรอบ 2 รอต้นส่งเอง (migration 0004 — ยังไม่รันก็เป็น false) */
+  hasDraft: boolean;
 }
 
 export interface MessageRow {
@@ -131,7 +133,8 @@ export async function listConversations(opts: {
   if (error) throw error;
 
   const rows = (data ?? []) as unknown as RawConversation[];
-  const last = await lastMessages(rows.map((r) => r.id));
+  const ids = rows.map((r) => r.id);
+  const [last, drafts] = await Promise.all([lastMessages(ids), draftIds(ids)]);
 
   return rows.map((r) => {
     const lm = last.get(r.id);
@@ -145,8 +148,25 @@ export async function listConversations(opts: {
       lastMessage: lm?.content ?? "",
       lastMessageSender: lm?.sender ?? null,
       lastMessageAt: lm?.created_at ?? null,
+      hasDraft: drafts.has(r.id),
     };
   });
+}
+
+/** ห้องไหนมีร่างตามรอบ 2 — อ่านแยก ถ้ายังไม่รัน 0004 ก็คืนชุดว่าง ไม่ทำให้กล่องข้อความพัง */
+async function draftIds(ids: string[]): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  const { data, error } = await db()
+    .from("conversations")
+    .select("id,followup_draft")
+    .in("id", ids)
+    .not("followup_draft", "is", null);
+  if (error) return new Set();
+  return new Set(
+    ((data ?? []) as unknown as { id: string; followup_draft: string | null }[])
+      .filter((r) => (r.followup_draft ?? "").trim() !== "")
+      .map((r) => r.id),
+  );
 }
 
 export interface ConversationDetail {
@@ -162,6 +182,53 @@ export interface ConversationDetail {
     draftAt: string | null;
     sentAt: string | null;
     variant: string | null;
+  };
+  /** ผู้สนใจล่าสุดที่ผูกกับห้องนี้ (ไว้ทำการ์ดสรุปบนหัวหน้าแชท) · ไม่มี = null */
+  lead: LeadSummary | null;
+}
+
+export interface LeadSummary {
+  id: string;
+  name: string | null;
+  phone: string | null;
+  email: string | null;
+  line_id: string | null;
+  interest: string | null;
+  status: string;
+  segment: string | null;
+  qualification: { button?: string; fields?: Record<string, string>; reason?: string } | null;
+  created_at: string;
+}
+
+const LEAD_COLS_FULL = "id,name,phone,email,line_id,interest,status,segment,qualification,created_at";
+const LEAD_COLS_LEGACY = "id,name,phone,email,interest,status,created_at";
+
+/** ผู้สนใจล่าสุดของห้อง — ถ้ายังไม่รัน 0003 ถอยไปอ่านคอลัมน์ชุดเดิม · พังทั้งคู่ = null (หน้าแชทต้องเปิดได้เสมอ) */
+async function latestLeadOf(conversationId: string): Promise<LeadSummary | null> {
+  const run = (cols: string) =>
+    db()
+      .from("leads")
+      .select(cols)
+      .eq("conversation_id", conversationId)
+      .eq("page_id", pageId())
+      .order("created_at", { ascending: false })
+      .limit(1);
+  let res = await run(LEAD_COLS_FULL);
+  if (res.error) res = await run(LEAD_COLS_LEGACY);
+  if (res.error) return null;
+  const row = ((res.data ?? []) as unknown as Partial<LeadSummary>[])[0];
+  if (!row) return null;
+  return {
+    id: String(row.id),
+    name: row.name ?? null,
+    phone: row.phone ?? null,
+    email: row.email ?? null,
+    line_id: row.line_id ?? null,
+    interest: row.interest ?? null,
+    status: row.status ?? "new",
+    segment: row.segment ?? null,
+    qualification: row.qualification ?? null,
+    created_at: String(row.created_at),
   };
 }
 
@@ -200,6 +267,7 @@ export async function getConversation(id: string): Promise<ConversationDetail | 
     .order("created_at", { ascending: true })
     .limit(500);
   if (msgs.error) throw msgs.error;
+  const lead = await latestLeadOf(id);
 
   const messages = ((msgs.data ?? []) as unknown as {
     id: string;
@@ -232,6 +300,7 @@ export async function getConversation(id: string): Promise<ConversationDetail | 
       sentAt: fuRow?.followup_sent_at ?? null,
       variant: fuRow?.followup_variant ?? null,
     },
+    lead,
   };
 }
 
@@ -343,4 +412,96 @@ export async function getStats(): Promise<Stats> {
     answerMix,
     answerMixDays: mixDays,
   };
+}
+
+// ── งานวันนี้ + สถานะบอต ────────────────────────────────────────────────
+
+export interface BotStatus {
+  botEnabled: boolean;
+  pageRegistered: boolean;
+  /** ข้อความล่าสุดที่บอตตอบออกไป */
+  lastBotReplyAt: string | null;
+  /** ข้อความล่าสุดที่ลูกค้าส่งเข้ามา */
+  lastCustomerMessageAt: string | null;
+  /** event จาก Facebook ที่ประมวลผลล้มใน 24 ชม. ล่าสุด */
+  webhookErrors24h: number;
+  messagesToday: number;
+  aiCallsToday: number;
+  aiCallCap: number;
+}
+
+export async function getBotStatus(): Promise<BotStatus> {
+  const page = pageId();
+  const [fbPage, lastBot, lastIn, errors, msgToday, aiToday] = await Promise.all([
+    db().from("fb_pages").select("page_id,bot_enabled").eq("page_id", page).maybeSingle(),
+    db()
+      .from("messages")
+      .select("created_at")
+      .eq("page_id", page)
+      .eq("sender", "bot")
+      .order("created_at", { ascending: false })
+      .limit(1),
+    db()
+      .from("messages")
+      .select("created_at")
+      .eq("page_id", page)
+      .eq("sender", "user")
+      .order("created_at", { ascending: false })
+      .limit(1),
+    db()
+      .from("webhook_events")
+      .select("event_key", { count: "exact", head: true })
+      .eq("status", "error")
+      .gte("received_at", daysAgo(1)),
+    db()
+      .from("messages")
+      .select("id", { count: "exact", head: true })
+      .eq("page_id", page)
+      .gte("created_at", startOfToday()),
+    db()
+      .from("usage_log")
+      .select("id", { count: "exact", head: true })
+      .eq("page_id", page)
+      .gte("created_at", startOfToday()),
+  ]);
+
+  const first = (r: { data: unknown }) =>
+    (((r.data ?? []) as { created_at?: string }[])[0]?.created_at ?? null) as string | null;
+
+  return {
+    botEnabled: (fbPage.data as { bot_enabled?: boolean } | null)?.bot_enabled ?? true,
+    pageRegistered: Boolean(fbPage.data),
+    lastBotReplyAt: lastBot.error ? null : first(lastBot),
+    lastCustomerMessageAt: lastIn.error ? null : first(lastIn),
+    webhookErrors24h: errors.error ? 0 : (errors.count ?? 0),
+    messagesToday: msgToday.count ?? 0,
+    aiCallsToday: aiToday.count ?? 0,
+    aiCallCap: env.brain.dailyAiCallCap(),
+  };
+}
+
+/** ผู้สนใจที่ยังไม่ได้ติดต่อ — ป้อนให้ "งานวันนี้" */
+export async function listNewLeads(limit = 100): Promise<(LeadSummary & { conversation_id: string | null })[]> {
+  const run = (cols: string) =>
+    db()
+      .from("leads")
+      .select(`${cols},conversation_id`)
+      .eq("page_id", pageId())
+      .eq("status", "new")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+  let res = await run(LEAD_COLS_FULL);
+  if (res.error) res = await run(LEAD_COLS_LEGACY);
+  if (res.error) throw res.error;
+  return ((res.data ?? []) as unknown as (Partial<LeadSummary> & { id: string; created_at: string; conversation_id: string | null })[]).map((r) => ({
+    ...r,
+    name: r.name ?? null,
+    phone: r.phone ?? null,
+    email: r.email ?? null,
+    line_id: r.line_id ?? null,
+    interest: r.interest ?? null,
+    status: r.status ?? "new",
+    segment: r.segment ?? null,
+    qualification: r.qualification ?? null,
+  }));
 }

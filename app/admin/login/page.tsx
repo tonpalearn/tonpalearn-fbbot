@@ -40,10 +40,11 @@ function LoginForm() {
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center px-5">
-      <form onSubmit={submit} className="card w-full max-w-sm p-7">
-        <p className="soft text-sm tracking-widest uppercase">TONPALEARN</p>
-        <h1 className="mt-1 mb-5 text-2xl font-semibold">หน้าผู้ดูแลแชทบอต</h1>
+    <main className="flex min-h-dvh items-center justify-center px-4">
+      <form onSubmit={submit} className="card w-full max-w-sm p-7" style={{ boxShadow: "var(--shadow-m)" }}>
+        <p className="eyebrow">TONPALEARN</p>
+        <h1 className="mt-1 mb-1 text-[1.6rem] font-semibold">ผู้ช่วยตอบแชท</h1>
+        <p className="soft mb-5 text-[0.95rem]">หน้าผู้ดูแล — เข้าสู่ระบบด้วยรหัสผ่านของทีม</p>
 
         <label className="block">
           <span className="mb-1 block font-medium">รหัสผ่าน</span>
@@ -58,7 +59,7 @@ function LoginForm() {
         </label>
 
         {error && (
-          <p className="mt-3 text-[0.95rem]" style={{ color: "#b3382f" }}>
+          <p role="alert" className="mt-3 text-[0.95rem]" style={{ color: "var(--red)" }}>
             {error}
           </p>
         )}

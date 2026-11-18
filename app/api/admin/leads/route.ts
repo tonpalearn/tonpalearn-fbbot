@@ -2,6 +2,7 @@
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/supabase";
 import { pageId } from "../_lib/data";
+import { thaiDateRange } from "@/lib/today";
 import { asInt, asTrimmed, fail, ok } from "../_lib/http";
 
 export const runtime = "nodejs";
@@ -15,6 +16,8 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const status = asTrimmed(url.searchParams.get("status"));
+  // ตัวกรองช่วงวันที่เก็บข้อมูลได้ (วันตามปฏิทินไทย) — ?from=YYYY-MM-DD&to=YYYY-MM-DD ใส่ช่องเดียวก็ได้
+  const range = thaiDateRange(url.searchParams.get("from"), url.searchParams.get("to"));
   const limit = Math.min(Math.max(asInt(url.searchParams.get("limit"), 200), 1), 1000);
 
   // source/segment/line_id/qualification มาจาก migration 0003
@@ -31,6 +34,8 @@ export async function GET(req: Request) {
       .order("created_at", { ascending: false })
       .limit(limit);
     if (status !== "" && STATUSES.includes(status)) q = q.eq("status", status);
+    if (range.gte) q = q.gte("created_at", range.gte);
+    if (range.lt) q = q.lt("created_at", range.lt);
     return q;
   };
 
