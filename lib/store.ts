@@ -115,6 +115,11 @@ export async function updateConversation(
     last_user_message_at: string;
     last_bot_message_at: string;
     unread_for_admin: boolean;
+    /** migration 0004 */
+    followup_sent_at: string | null;
+    followup_variant: string | null;
+    followup_draft: string | null;
+    followup_draft_at: string | null;
   }>,
 ): Promise<void> {
   const { error } = await db()

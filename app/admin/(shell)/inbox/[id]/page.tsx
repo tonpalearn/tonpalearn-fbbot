@@ -19,6 +19,62 @@ interface Detail {
   name: string;
   lastUserMessageAt: string | null;
   messages: MessageRow[];
+  followup?: { draft: string | null; draftAt: string | null; sentAt: string | null; variant: string | null };
+}
+
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * ร่างข้อความตามรอบ 2 (วันที่ 3–5) — บอตห้ามส่งเอง ต้นคัดลอกไปแก้แล้วส่งใน Business Suite
+ * หลังพ้น 24 ชม. เพจส่งได้เฉพาะข้อความที่คนพิมพ์ และไม่เกิน 7 วันนับจากข้อความล่าสุดของลูกค้า
+ */
+function RoundTwoDraft({ draft, lastUserMessageAt, sentAt }: { draft: string; lastUserMessageAt: string | null; sentAt: string | null }) {
+  const [copied, setCopied] = useState<"" | "ok" | "manual">("");
+  const last = lastUserMessageAt ? new Date(lastUserMessageAt).getTime() : 0;
+  const deadline = last ? new Date(last + SEVEN_DAYS_MS) : null;
+  const expired = deadline ? Date.now() > deadline.getTime() : false;
+  async function copy() {
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(draft);
+      ok = true;
+    } catch {
+      // บางเบราว์เซอร์/หน้าต่างฝังไม่ให้ใช้ clipboard API → ถอยไปวิธีเก่า
+      const ta = document.createElement("textarea");
+      ta.value = draft;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        ok = document.execCommand("copy");
+      } catch {
+        ok = false;
+      }
+      ta.remove();
+    }
+    setCopied(ok ? "ok" : "manual");
+    setTimeout(() => setCopied(""), 2500);
+  }
+  return (
+    <div className="card space-y-2 p-4" data-testid="round-two-draft">
+      <p className="font-medium">ร่างตามรอบ 2 (วันที่ 3–5) — บอตไม่ส่งเอง</p>
+      <p className="select-all whitespace-pre-wrap rounded-xl p-3" style={{ background: "var(--bg)", border: "1px solid var(--line)" }}>
+        {draft}
+      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <button className="btn-gold" onClick={copy} type="button">
+          {copied === "ok" ? "คัดลอกแล้ว" : copied === "manual" ? "คัดลอกไม่ได้ — ลากเลือกข้อความเอง" : "คัดลอกข้อความ"}
+        </button>
+        <span className="soft text-[0.9rem]">
+          แทน [ปัญหา] ด้วยคำสั้น ๆ ของต้นก่อนส่ง · ส่งใน Business Suite
+          {deadline ? ` · ส่งได้ถึง ${thaiTime(deadline.toISOString())}` : ""}
+          {expired ? " (เลยกำหนดแล้ว)" : ""}
+          {sentAt ? " · บอตตามอัตโนมัติไปแล้ว 1 ครั้ง" : ""}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -106,6 +162,14 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
             แนะนำให้ติดต่อทางเบอร์หรืออีเมลที่เก็บไว้ในหน้าผู้สนใจแทนครับ
           </p>
         </div>
+      )}
+
+      {data.followup?.draft && (
+        <RoundTwoDraft
+          draft={data.followup.draft}
+          lastUserMessageAt={data.lastUserMessageAt}
+          sentAt={data.followup.sentAt}
+        />
       )}
 
       {notice && (

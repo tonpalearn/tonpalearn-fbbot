@@ -10,7 +10,8 @@
 import { after } from "next/server";
 import { env } from "@/lib/env";
 import { verifySignature, sendText, sendQuickReplies, sendSenderAction, passThreadControl } from "@/lib/facebook";
-import { handleIncoming, type BotAction } from "@/lib/brain";
+import { handleAttachment, handleIncoming, type BotAction } from "@/lib/brain";
+import type { OutPart } from "@/lib/qualifier";
 import * as store from "@/lib/store";
 
 export const runtime = "nodejs";
@@ -102,13 +103,11 @@ async function processEvent(pageId: string, event: MessagingEvent): Promise<void
     const postbackPayload =
       event.postback?.payload ?? event.message?.quick_reply?.payload ?? null;
 
-    // ลูกค้าส่งรูป/สติกเกอร์/ไฟล์ มาโดยไม่มีข้อความ
+    // ลูกค้าส่งรูป/สติกเกอร์/ไฟล์ มาโดยไม่มีข้อความ → บอกว่าได้รับแล้ว + ส่งต่อต้น (BOT-VOICE 2.7)
     if (!text && !postbackPayload) {
       if (event.message?.attachments?.length) {
-        await sendText(
-          psid,
-          "ได้รับไฟล์แล้วครับ ถ้าอยากให้ช่วยเรื่องไหน พิมพ์บอกได้เลยครับ",
-        );
+        const action = await handleAttachment({ pageId, psid, text: "", mid });
+        await deliver(pageId, psid, action);
       }
       await store.markEventDone(eventKey);
       return;
@@ -127,6 +126,26 @@ async function processEvent(pageId: string, event: MessagingEvent): Promise<void
   }
 }
 
+/** ส่งข้อความหนึ่งชิ้น (มีปุ่มหรือไม่มี) แล้วบันทึก */
+async function sendPart(
+  pageId: string,
+  psid: string,
+  conversationId: string,
+  part: OutPart,
+  source: string,
+): Promise<void> {
+  if (part.replies?.length) await sendQuickReplies(psid, part.text, part.replies);
+  else await sendText(psid, part.text);
+  await store.saveMessage({
+    conversationId,
+    pageId,
+    direction: "out",
+    sender: "bot",
+    content: part.text,
+    answerSource: source,
+  });
+}
+
 /** ส่งผลลัพธ์ที่สมองตัดสินใจแล้วกลับไปหาลูกค้า + บันทึกลงฐานข้อมูล */
 async function deliver(pageId: string, psid: string, action: BotAction): Promise<void> {
   const contactId = await store.upsertContact({ pageId, psid });
@@ -134,12 +153,24 @@ async function deliver(pageId: string, psid: string, action: BotAction): Promise
 
   if (action.kind === "silent") return;
 
+  if (action.kind === "multi") {
+    for (const part of action.parts) await sendPart(pageId, psid, convo.id, part, action.source);
+    await store.updateConversation(convo.id, { last_bot_message_at: new Date().toISOString() });
+    return;
+  }
+
   if (action.kind === "handoff") {
     // ลำดับสำคัญ: ตั้งสถานะให้บอตเงียบ "ก่อน" เรียก Facebook
     // ถ้าโอนสายไม่สำเร็จ (เช่น ยังไม่ได้ตั้งเพจให้แอปนี้เป็นผู้รับหลัก)
     // อย่างน้อยบอตต้องหยุดพูดประโยคเดิมซ้ำ ๆ และแอดมินต้องเห็นว่ามีคนรออยู่
     await store.updateConversation(convo.id, { state: "awaiting_human", unread_for_admin: true });
     await store.logHandoff(convo.id, "pass", action.reason, "bot");
+    // ข้อความที่ต้องส่งก่อนข้อความโอนสาย (เช่น เคส + ลิงก์ portfolio)
+    for (const part of action.pre ?? []) {
+      await sendPart(pageId, psid, convo.id, part, "handoff_pre").catch((err) =>
+        console.error(`[webhook] ส่งข้อความก่อนโอนสายไม่สำเร็จ: ${(err as Error).message}`),
+      );
+    }
     await store.saveMessage({
       conversationId: convo.id,
       pageId,

@@ -1,6 +1,6 @@
 /**
  * เทสต์โฟลว์คัดลูกค้าจากแอด ผ่านสมองบอตตัวจริง (handleIncoming)
- * ปลอมแค่ฐานข้อมูล โมเดล และ LINE — ตรวจ "สิ่งที่ลูกค้าเห็น" กับ "สิ่งที่บันทึก" จริง
+ * ปลอมแค่ฐานข้อมูล โมเดล LINE และโปรไฟล์ Messenger — ตรวจ "สิ่งที่ลูกค้าเห็น" กับ "สิ่งที่บันทึก"
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
@@ -20,7 +20,8 @@ const state = {
   },
   aiCallsToday: 0,
   savedLeads: [] as Record<string, unknown>[],
-  usage: 0,
+  patches: [] as Record<string, unknown>[],
+  settings: {} as Record<string, string>,
 };
 
 vi.mock("@/lib/store", () => ({
@@ -28,7 +29,7 @@ vi.mock("@/lib/store", () => ({
   getOrCreateConversation: vi.fn(async () => state.conversation),
   saveMessage: vi.fn(async () => undefined),
   updateConversation: vi.fn(async (_id: string, patch: Record<string, unknown>) => {
-    // จำลอง jsonb: เก็บสำเนา ไม่ใช่ตัวอ้างอิงเดิม
+    state.patches.push(patch);
     Object.assign(state.conversation, JSON.parse(JSON.stringify(patch)));
   }),
   getHistory: vi.fn(async () => []),
@@ -36,14 +37,12 @@ vi.mock("@/lib/store", () => ({
   getActiveRules: vi.fn(async () => []),
   searchFaq: vi.fn(async () => []),
   searchKb: vi.fn(async () => []),
-  getSetting: vi.fn(async (_k: string, fallback: string) => fallback),
+  getSetting: vi.fn(async (k: string, fallback: string) => state.settings[k] ?? fallback),
   saveLead: vi.fn(async (lead: Record<string, unknown>) => {
     state.savedLeads.push(lead);
   }),
   logHandoff: vi.fn(async () => undefined),
-  logUsage: vi.fn(async () => {
-    state.usage += 1;
-  }),
+  logUsage: vi.fn(async () => undefined),
   countAiCallsToday: vi.fn(async () => state.aiCallsToday),
   bumpHit: vi.fn(async () => undefined),
 }));
@@ -55,42 +54,42 @@ type Extract = {
   outputTokens: number;
   latencyMs: number;
 };
-/** ค่าเริ่มต้น: โมเดลตอบว่า "ตอบคำถาม" แต่ไม่ได้แยกช่องให้ → ใช้ผลกติกาตายตัว */
-const extractMock = vi.fn(
-  async (_p: { askedQuestion: string; answer: string }): Promise<Extract> => ({
-    fields: {},
-    intent: "answer",
-    inputTokens: 5,
-    outputTokens: 5,
-    latencyMs: 1,
-  }),
-);
-const kbMock = vi.fn(async () => ({ text: null, inputTokens: 0, outputTokens: 0, latencyMs: 0 }));
+const plain: Extract = { fields: {}, intent: "answer", inputTokens: 5, outputTokens: 5, latencyMs: 1 };
+const extractMock = vi.fn(async (_p: { askedQuestion: string; answer: string }): Promise<Extract> => plain);
 vi.mock("@/lib/ai", () => ({
-  answerFromKnowledge: (...a: unknown[]) => kbMock(...(a as [])),
+  answerFromKnowledge: vi.fn(async () => ({ text: null, inputTokens: 0, outputTokens: 0, latencyMs: 0 })),
   extractQualifierFields: (p: { askedQuestion: string; answer: string }) => extractMock(p),
 }));
 
 const notifyMock = vi.fn(async (_t: string) => "sent" as const);
 vi.mock("@/lib/notify", () => ({ notifyOwner: (t: string) => notifyMock(t) }));
 
-const { handleIncoming } = await import("@/lib/brain");
-const { SCRIPT, EXTRA, allowedMoneyFigures } = await import("@/lib/qualifier");
+const profileMock = vi.fn(async (_psid: string) => ({ first_name: "สมมติ", last_name: "ทดสอบ" }));
+vi.mock("@/lib/facebook", () => ({ getUserProfile: (p: string) => profileMock(p) }));
+
+const { handleIncoming, handleAttachment } = await import("@/lib/brain");
+const Q = await import("@/lib/qualifier");
+const { SCRIPT, VOICE, CASES, FREE_CALL_LINE, allowedMoneyFigures } = Q;
 const { extractRiskyFacts } = await import("@/lib/guard");
 
-const say = (text: string) =>
-  handleIncoming({ pageId: "P1", psid: "u-psid", text, mid: `m${Math.random()}` });
-
-/** คุยหลายข้อความต่อกัน แล้วคืนสิ่งที่บอตตอบทีละข้อ */
+type Action = Awaited<ReturnType<typeof handleIncoming>>;
+const say = (text: string) => handleIncoming({ pageId: "P1", psid: "u-psid", text, mid: `m${Math.random()}` });
 async function chat(...lines: string[]) {
-  const out = [];
+  const out: Action[] = [];
   for (const l of lines) out.push(await say(l));
   return out;
 }
+/** ข้อความทั้งหมดที่ลูกค้าจะเห็นจาก action หนึ่ง (ตามลำดับ) */
+function texts(a: Action): string[] {
+  if (a.kind === "multi") return a.parts.map((p) => p.text);
+  if (a.kind === "handoff") return [...(a.pre ?? []).map((p) => p.text), a.text];
+  if (a.kind === "text" || a.kind === "quick_replies") return [a.text];
+  return [];
+}
+const all = (a: Action) => texts(a).join("\n");
+const SLOTS = "ศุกร์ 20 พ.ย. 14:00\nอังคาร 24 พ.ย. 10:00";
 
-const textOf = (a: { kind: string; text?: string }) => ("text" in a ? (a.text ?? "") : "");
-
-beforeEach(() => {
+function reset() {
   state.conversation = {
     id: "c1",
     page_id: "P1",
@@ -102,253 +101,235 @@ beforeEach(() => {
   };
   state.aiCallsToday = 0;
   state.savedLeads = [];
-  state.usage = 0;
-  extractMock.mockClear();
+  state.patches = [];
+  state.settings = {};
+}
+
+beforeEach(() => {
+  reset();
+  extractMock.mockReset();
+  extractMock.mockResolvedValue(plain);
   notifyMock.mockClear();
-  kbMock.mockClear();
+  profileMock.mockClear();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-19T02:00:00Z")); // พฤหัส 19 พ.ย. 09:00 เวลาไทย
 });
 
-describe("ด่าน 1 — 4 ปุ่มยอดขาย ได้ถ้อยคำตามสคริปต์ ไม่โยนหาคนทันที", () => {
+describe("4 ปุ่มยอดขาย → ด่าน 1 ตาม BOT-VOICE (มีปุ่ม)", () => {
   it.each([
-    ["100 ล้านขึ้นไป", SCRIPT.bigOpen],
-    ["10–100 ล้าน", SCRIPT.bigOpen],
+    ["100 ล้านขึ้นไป", VOICE.taskQ],
+    ["10–100 ล้าน", VOICE.taskQ],
     ["ต่ำกว่า 10 ล้าน", SCRIPT.smallOpen],
     ["อยากเรียน AI เอง", SCRIPT.selfOpen],
-  ])("%s", async (button, expected) => {
+  ])("%s", async (button, first) => {
     const out = await say(button);
-    expect(out).toMatchObject({ kind: "text", text: expected });
+    expect(out.kind).toBe("multi");
+    expect(texts(out)[0]).toBe(first);
+    expect(out.kind === "multi" && out.parts.some((p) => (p.replies?.length ?? 0) > 0)).toBe(true);
     expect(state.conversation.state).toBe("collecting_lead");
-    expect(kbMock).not.toHaveBeenCalled();
-    expect(notifyMock).not.toHaveBeenCalled();
-  });
-
-  it("ขอรายละเอียด/ตัวอย่างงาน → ลิงก์ portfolio ตามด่าน 6 แล้วถามเรื่องธุรกิจต่อ", async () => {
-    const [first, second] = await chat("ขอราบละเอียดบริการ และกรณีตัวอย่างที่ทำแล้วได้ไหมครับ", "ร้านอาหาร 3 สาขาครับ");
-    expect(textOf(first)).toBe(SCRIPT.details);
-    expect(textOf(first)).toContain("tonpalearn.com/portfolio");
-    // ได้ธุรกิจแล้ว แต่ "3 สาขา" ไม่ใช่ขนาดทีม → ถามขนาดทีมต่อ
-    expect(textOf(second)).toBe(EXTRA.teamSize);
   });
 });
 
-describe("กลุ่มหลัก — ถามทีละข้อจนครบ แล้วบันทึก + แจ้งต้น + ส่งให้คน", () => {
-  it("เดินครบ 7 ช่อง", async () => {
+describe("กลุ่ม 10M+ ถาม 4 ข้อ → ส่งต่อต้น", () => {
+  it("ไม่มีช่องเวลาว่าง: งาน → ตรงไหนกินเวลา → ธุรกิจ → เคส + ขอเบอร์ → ยืนยัน + ส่งต่อ", async () => {
     const out = await chat(
       "100 ล้านขึ้นไป",
-      "โรงงานผลิตอาหารแช่แข็ง ทีมประมาณ 40 คนครับ",
+      "งานในโรงงาน",
       "ทีมบัญชีต้องรวมยอดจาก Excel หลายไฟล์ทุกสิ้นเดือน",
-      "ผมตัดสินใจเองได้ครับ",
-      "ภายใน 2 เดือนครับ",
-      "เอก",
+      "โรงงานผลิตอาหารแช่แข็ง",
       "081-234-5678",
     );
-    expect(textOf(out[1])).toBe(SCRIPT.pain); // ได้ทั้งธุรกิจ+ขนาดทีมจากข้อความเดียว → ข้ามไปด่านปัญหา
-    expect(textOf(out[2])).toBe(SCRIPT.decision);
-    expect(textOf(out[3])).toBe(SCRIPT.timeline);
-    expect(textOf(out[4])).toContain("ใช้ติดต่อเรื่องนี้เท่านั้น"); // แจ้งก่อนขอข้อมูลส่วนตัว
-    expect(textOf(out[5])).toBe(EXTRA.contact);
-    expect(out[6]).toMatchObject({ kind: "handoff", text: EXTRA.doneConsult });
+    expect(texts(out[1])).toEqual([VOICE.pain]);
+    expect(texts(out[2])).toEqual([VOICE.businessType]);
+    expect(texts(out[3])[0]).toContain("ที่ใกล้สุดที่ผมมีตอนนี้คือโรงสี คนละอุตสาหกรรมกัน");
+    expect(texts(out[3])[1]).toBe(VOICE.consentConsult);
+    expect(out[4]).toMatchObject({ kind: "handoff", text: VOICE.doneConsult });
+    expect(texts(out[4])[0]).toBe(VOICE.consentConfirm);
+    // ไม่ถามชื่อ ไม่ถามขนาดทีม ไม่ถามตัดสินใจ/อยากเห็นผล
+    expect(out.map(all).join("\n")).not.toMatch(/ชื่อ|กี่คน|ตัดสินใจ|อยากเห็นผล/);
 
-    expect(state.savedLeads).toHaveLength(1);
     const lead = state.savedLeads[0];
-    expect(lead).toMatchObject({
-      name: "เอก",
-      phone: "0812345678",
-      leadType: "corporate",
-      source: "messenger_ad",
-      segment: "big",
-    });
+    expect(lead).toMatchObject({ name: "สมมติ ทดสอบ", phone: "0812345678", segment: "big", source: "messenger_ad" });
     expect(lead.consentAt).toBeTruthy();
-    expect((lead.qualification as { fields: Record<string, string> }).fields).toMatchObject({
-      team_size: "40 คน",
-      decision_maker: "ตัดสินใจเองได้",
-      timeline: "ภายใน 2 เดือน",
-    });
-
-    expect(notifyMock).toHaveBeenCalledTimes(1);
     const summary = notifyMock.mock.calls[0][0];
-    expect(summary).toContain("ปุ่มที่กด: 100 ล้านขึ้นไป");
-    expect(summary).toContain("โทร 0812345678");
-    expect(summary).toContain("https://bot.example.test/admin/inbox/c1");
-    expect((out[6] as { summary?: string }).summary).toBe(summary);
-    expect(state.conversation.lead_draft).toEqual({});
+    expect(summary).toContain("ชื่อในโปรไฟล์: สมมติ ทดสอบ");
+    expect(summary).toContain("ร่างตามรอบ 2");
+    expect(summary).toContain("ยังสนใจเรื่อง[ปัญหา]อยู่ไหมครับ");
+    expect(state.conversation).toMatchObject({ followup_draft: expect.stringContaining("ผมจะไม่ทักซ้ำ") });
   });
 
-  it("กลุ่ม <10M ได้ราคาเริ่มต้นตามสคริปต์ในข้อความแรก แล้วถามขนาดทีมเมื่อได้ธุรกิจ+ปัญหาแล้ว", async () => {
-    extractMock.mockResolvedValueOnce({
-      fields: { business_type: "ร้านเสื้อผ้าออนไลน์", pain: "ตอบแชทลูกค้า" },
-      intent: "answer",
-      inputTokens: 5,
-      outputTokens: 5,
-      latencyMs: 1,
-    });
-    const out = await chat("ต่ำกว่า 10 ล้าน", "ร้านเสื้อผ้าออนไลน์ครับ อยากให้ช่วยตอบแชทลูกค้า");
-    expect(textOf(out[0])).toContain("14,000 บาท");
-    expect(textOf(out[1])).toBe(EXTRA.teamSize);
-  });
-});
-
-describe("ลูกค้าตอบนอกเรื่อง", () => {
-  it("ครั้งแรกถามซ้ำ · ครั้งที่สองติดกันส่งให้คน พร้อมสรุป", async () => {
-    extractMock.mockResolvedValue({ fields: {}, intent: "off_topic", inputTokens: 5, outputTokens: 5, latencyMs: 1 });
-    const out = await chat("10–100 ล้าน", "วันนี้อากาศร้อนมากเลย", "555 ฝนจะตกไหมนะ");
-    expect(textOf(out[1])).toBe(`${EXTRA.offTopic}\n\n${EXTRA.businessType}`);
-    expect(out[2]).toMatchObject({ kind: "handoff", text: EXTRA.toHuman });
-    expect(state.savedLeads).toHaveLength(1);
-    expect(notifyMock).toHaveBeenCalledTimes(1);
-    extractMock.mockReset();
-    extractMock.mockResolvedValue({ fields: {}, intent: "answer", inputTokens: 5, outputTokens: 5, latencyMs: 1 });
+  it("มีช่องเวลาว่าง: ชวนนัดด่าน 4 + 'ขั้นตอนนี้ไม่มีค่าใช้จ่ายครับ' + เลือกเวลา → ขอเบอร์ → ยืนยันเวลา", async () => {
+    state.settings.meeting_slots = SLOTS;
+    const out = await chat("100 ล้านขึ้นไป", "สรุปตัวเลขผู้บริหาร", "รวมยอดขายจากหลายสาขา", "กลุ่มบริษัท 3 บริษัท");
+    const invite = texts(out[3]);
+    expect(invite[0]).toBe(CASES.group.text);
+    expect(invite[1]).toBe(SCRIPT.invite1);
+    expect(invite[2]).toContain(FREE_CALL_LINE);
+    expect(invite[2]).toContain("สะดวก ศุกร์ 20 พ.ย. 14:00 หรือ อังคาร 24 พ.ย. 10:00 ครับ");
+    const tail = await chat("อังคาร 24 พ.ย. 10:00", "LINE: test.line");
+    expect(texts(tail[0])).toEqual([VOICE.consentConsult]);
+    expect(tail[1]).toMatchObject({ kind: "handoff", text: "อังคาร 24 พ.ย. 10:00 นะครับ เดี๋ยวผมส่งลิงก์ Zoom ให้ในแชทนี้" });
+    expect(state.savedLeads[0]).toMatchObject({ lineId: "test.line" });
   });
 
-  it("ลูกค้าถามกลับ → บอตไม่ตอบเอง จดคำถามไว้ให้คน แล้วถามต่อ", async () => {
-    extractMock.mockResolvedValueOnce({ fields: {}, intent: "question", inputTokens: 5, outputTokens: 5, latencyMs: 1 });
-    const out = await chat("100 ล้านขึ้นไป", "ทำระบบเชื่อม SAP ได้ไหมครับ");
-    expect(textOf(out[1])).toBe(`${EXTRA.questionNoted}\n\n${EXTRA.businessType}`);
-    expect((state.conversation.lead_draft as { questions: string[] }).questions).toEqual([
-      "ทำระบบเชื่อม SAP ได้ไหมครับ",
-    ]);
+  it("ไม่สะดวกทั้ง 2 เวลา → ถามช่วงที่สะดวก แล้วส่งต่อต้น", async () => {
+    state.settings.meeting_slots = SLOTS;
+    const out = await chat("100 ล้านขึ้นไป", "งานในโรงงาน", "นับสต็อก", "โรงสี", "ไม่สะดวกทั้งคู่");
+    expect(out[4]).toMatchObject({ kind: "handoff", text: VOICE.slotNone });
   });
 });
 
-describe("ขอคุยกับคน — ได้ทุกเมื่อ", () => {
-  it("กลางโฟลว์ → โอนสาย + เก็บเท่าที่ได้ + แจ้งต้น", async () => {
-    const out = await chat("100 ล้านขึ้นไป", "ธุรกิจโลจิสติกส์ 200 คน", "ขอคุยกับคนครับ");
+describe("(b) เจ้าของโรงงานถามตัวอย่าง แล้วถาม SI", () => {
+  it("ตัวอย่าง (รู้ธุรกิจแล้ว) → เคส + ไม่เปิดชื่อ + ชวนคุย · SI → 2 ข้อความ + ปุ่ม IT · ไม่มี → ตอบก่อนแล้วไปต่อ", async () => {
+    state.settings.meeting_slots = SLOTS;
+    const out = await chat("10–100 ล้าน", "งานในโรงงาน", "วางแผนผลิตด้วยมือ", "โรงงานฉีดพลาสติก");
+    reset();
+    state.settings.meeting_slots = SLOTS;
+    const o2 = await chat("10–100 ล้าน", "งานในโรงงาน", "มีตัวอย่างไหมครับ", "โรงงานฉีดพลาสติก");
+    expect(texts(o2[2])).toEqual([VOICE.detailsUnknown]);
+    const ex = texts(o2[3]);
+    expect(ex[0]).toContain("คนละอุตสาหกรรมกัน");
+    expect(ex[1]).toBe(VOICE.casePrivacy);
+    expect(ex[2]).toContain(FREE_CALL_LINE);
+    expect(out.length).toBe(4);
+
+    const si = await say("SI?");
+    expect(texts(si)).toEqual([VOICE.si1, VOICE.si2]);
+    expect(si.kind === "multi" && si.parts[1].replies?.map((r) => r.title)).toEqual(["มีทีม IT", "ไม่มี"]);
+    const no = await say("ไม่มี");
+    expect(texts(no)[0]).toBe(VOICE.noIt);
+  });
+
+  it("ตัวอย่าง (ไม่มีช่องเวลาว่าง) → เคส + ไม่เปิดชื่อ + 'เดี๋ยวผมเข้ามาเสนอเวลา' แล้วส่งต่อ", async () => {
+    const out = await chat("100 ล้านขึ้นไป", "ขอดูผลงานหน่อยครับ", "บริษัทประกันชีวิต");
     expect(out[2].kind).toBe("handoff");
-    expect(state.savedLeads[0]).toMatchObject({ segment: "big" });
-    expect((state.savedLeads[0].qualification as { reason: string }).reason).toBe("ลูกค้าขอคุยกับคน");
+    expect(texts(out[2])).toEqual([CASES.insurance.text, VOICE.casePrivacy, expect.stringContaining("เดี๋ยวผมเข้ามาเสนอเวลาในแชทนี้")]);
+    expect(all(out[2])).toContain(FREE_CALL_LINE);
+  });
+});
+
+describe("(c) ถามว่าเป็นบอทไหม → ตอบตรงว่าเป็นระบบตอบอัตโนมัติ แล้วส่งต่อ", () => {
+  it("กลางโฟลว์", async () => {
+    const out = await chat("100 ล้านขึ้นไป", "นี่บอทตอบเหรอครับ");
+    expect(out[1]).toMatchObject({ kind: "handoff", text: VOICE.isBot });
+    expect(VOICE.isBot).toContain("ระบบตอบอัตโนมัติ");
     expect(notifyMock).toHaveBeenCalledTimes(1);
   });
-
-  it("ระหว่างคนถือสาย บอตเงียบ แม้ลูกค้ากดปุ่มยอดขายซ้ำ", async () => {
-    state.conversation.state = "awaiting_human";
-    expect((await say("100 ล้านขึ้นไป")).kind).toBe("silent");
-    state.conversation.state = "human_active";
-    expect((await say("ต่ำกว่า 10 ล้าน")).kind).toBe("silent");
+  it("นอกโฟลว์ (ทักมาเฉย ๆ)", async () => {
+    const out = await say("is this a bot?");
+    expect(out).toMatchObject({ kind: "handoff", text: VOICE.isBot });
   });
 });
 
-describe("ถามราคา", () => {
-  it("ครั้งแรก → ด่าน 5 ตามสคริปต์แล้วถามข้อเดิมต่อ · ถามซ้ำ → ส่งให้คน", async () => {
-    const out = await chat("10–100 ล้าน", "ราคาเท่าไรครับ", "สรุปราคาเท่าไหร่ครับ");
-    expect(textOf(out[1])).toBe(`${SCRIPT.price}\n\n${EXTRA.businessType}`);
-    expect(out[2]).toMatchObject({ kind: "handoff", text: EXTRA.priceDetail });
-    expect(extractMock).not.toHaveBeenCalled(); // ราคาจับด้วยโค้ด ไม่เสียค่าโมเดล
-  });
-
-  it("ถามราคาทำระบบ / ต่อรอง / ขอนัด → ส่งให้คนทันที (บอตไม่รับนัดเอง)", async () => {
-    expect((await chat("100 ล้านขึ้นไป", "ทำระบบให้ทั้งระบบราคาเท่าไร"))[1]).toMatchObject({ kind: "handoff" });
-    beforeEachReset();
-    const neg = await chat("ต่ำกว่า 10 ล้าน", "แพงไปครับ ลดได้ไหม");
-    expect(neg[1]).toMatchObject({ kind: "handoff" });
-    expect(textOf(neg[1])).toContain(SCRIPT.expensive);
-    beforeEachReset();
-    const appt = await chat("100 ล้านขึ้นไป", "ขอนัดคุยวันพฤหัส 10 โมงได้ไหมครับ");
-    expect(appt[1]).toMatchObject({ kind: "handoff", text: EXTRA.appointment });
-    expect(textOf(appt[1])).not.toMatch(/พฤหัส|10 โมง/);
-  });
-
-  it("กลุ่มอยากเรียนเอง ถามราคา → ราคาจาก MASTER ของคอร์สที่แนะนำเท่านั้น", async () => {
-    const out = await chat("อยากเรียน AI เอง", "อยากทำแชตบอทตอบลูกค้าใน LINE", "ราคาเท่าไรครับ");
-    expect(textOf(out[1])).toContain("LINE ChatBot (4 ชม.)");
-    expect(textOf(out[1])).toContain("ใช้ติดต่อเรื่องนี้เท่านั้น");
-    expect(textOf(out[2])).toContain("LINE ChatBot: ออนไลน์ (Zoom) 4,500 บาท · ที่ออฟฟิศ 7,000 บาท");
-  });
-});
-
-describe("ปฏิเสธให้เบอร์", () => {
-  it("ไม่ตื๊อ · ไม่บันทึกช่องทางติดต่อ · ไม่ลงเวลายินยอม · ส่งให้คนตอบต่อในแชท", async () => {
-    const out = await chat(
-      "100 ล้านขึ้นไป",
-      "บริษัทประกัน 80 คน",
-      "งานตรวจเอกสารเคลม",
-      "ต้องคุยกับผู้บริหารก่อน",
-      "ไตรมาสหน้า",
-      "ไม่สะดวกให้ข้อมูลครับ",
-    );
-    expect(out[5]).toMatchObject({ kind: "handoff", text: EXTRA.declinedContact });
-    const lead = state.savedLeads[0];
-    expect(lead).toMatchObject({ phone: null, email: null, lineId: null, name: null, consentAt: null });
-    expect((lead.qualification as { fields: Record<string, string> }).fields.decision_maker).toBe(
-      "ต้องคุยกับคนอื่นด้วย",
-    );
-  });
-
-  it("ตอบช่องติดต่อผิดรูป → ถามซ้ำ 1 ครั้ง แล้วส่งให้คน", async () => {
-    const d = {
-      flow: "qualifier", segment: "self_learn", button: "อยากเรียน AI เอง", revenueBand: null,
-      fields: { use_case: "เอกสาร", name: "มด" }, skipped: [], pending: "contact", retries: 0,
-      offTopic: 0, priceAsked: 0, consentShown: true, consentAt: null, questions: [], recommended: ["01"],
-    };
-    state.conversation.state = "collecting_lead";
-    state.conversation.lead_draft = d;
-    const out = await chat("เดี๋ยวส่งให้นะ", "ยังไม่มีอะไรให้ครับ");
-    expect(textOf(out[0])).toBe(EXTRA.contactRetry);
+describe("คำถามใหม่อื่น ๆ", () => {
+  it("ภาพรวม (ไม่มีช่องเวลา) → 3 ขั้น + คุยฟรี + ส่งต่อ", async () => {
+    const out = await chat("100 ล้านขึ้นไป", "ขอสรุปภาพรวมก่อนครับ");
+    expect(texts(out[1])[0]).toBe(VOICE.overview);
+    expect(all(out[1])).toContain(FREE_CALL_LINE);
     expect(out[1].kind).toBe("handoff");
+  });
+
+  it("วิธีทำ workflow → ของานจริง → คอร์ส AI Agentic + ถาม Online/Onsite → ราคา MASTER → ขอช่องทาง", async () => {
+    const out = await chat("100 ล้านขึ้นไป", "อยากได้วิธีทำ workflow เลย", "ส่งอีเมลสรุปยอดทุกเช้า", "Online", "0812345678");
+    expect(texts(out[1])).toEqual([VOICE.workflow1]);
+    expect(texts(out[2])[0]).toBe("งานแบบนี้ อยู่ในคอร์ส AI Agentic 4 ชม. ครับ ในคลาสผมให้เอางานนี้มาทำด้วยกันเลย");
+    expect(texts(out[2])).toContain(VOICE.workflowApps);
+    expect(texts(out[2]).at(-1)).toBe(VOICE.format);
+    expect(texts(out[3])[0]).toBe("• AI Agentic 4 ชม.\nOnline 4,500 · Onsite 7,000 · ท่านต่อไป 4,000 บาท");
+    expect(texts(out[3])[1]).toBe(VOICE.consentSelf);
+    expect(out[4]).toMatchObject({ kind: "handoff", text: VOICE.doneSelf });
+  });
+
+  it("กด 'อื่น ๆ พิมพ์เอง' → ข้อความชวนพิมพ์ ไม่นับเป็นคำตอบ", async () => {
+    const out = await chat("100 ล้านขึ้นไป", "อื่น ๆ พิมพ์เอง");
+    expect(texts(out[1])).toEqual([VOICE.typeOwn]);
+    expect((state.conversation.lead_draft as { fields: object }).fields).toEqual({});
+  });
+
+  it("<10M กด 'อยากเรียนเอง' → เข้าโฟลว์อยากเรียนเอง", async () => {
+    const out = await chat("ต่ำกว่า 10 ล้าน", "อยากเรียนเอง", "ทำแชตบอท");
+    expect(texts(out[1])).toEqual([SCRIPT.selfOpen]);
+    expect(texts(out[2])[0]).toContain("• LINE ChatBot 4 ชม. · ต้องผ่าน AI Agentic ก่อน");
+  });
+});
+
+describe("ราคา · ขอนัด · ปฏิเสธเบอร์ · นอกเรื่อง", () => {
+  it("ถามราคาครั้งแรก → ด่าน 5 คำต้น แล้วถามข้อเดิม · ถามซ้ำ → ส่งต่อ", async () => {
+    const out = await chat("10–100 ล้าน", "ราคาเท่าไรครับ", "สรุปราคาเท่าไหร่ครับ");
+    expect(texts(out[1])[0]).toBe(SCRIPT.price);
+    expect(texts(out[1])[1]).toBe(VOICE.taskQSmall);
+    expect(out[2]).toMatchObject({ kind: "handoff", text: VOICE.priceDetail });
+  });
+
+  it("ขอนัดไม่มีช่องเวลา → ส่งต่อ ไม่ทวนวันที่ลูกค้าเสนอ · มีช่องเวลา → เสนอ 2 ตัวเลือก", async () => {
+    const a = await chat("100 ล้านขึ้นไป", "ขอนัดคุยวันพฤหัส 10 โมงได้ไหมครับ");
+    expect(a[1]).toMatchObject({ kind: "handoff", text: VOICE.appointmentNoSlot });
+    reset();
+    state.settings.meeting_slots = SLOTS;
+    const b = await chat("100 ล้านขึ้นไป", "ขอนัดคุยได้ไหมครับ");
+    expect(b[1].kind).toBe("multi");
+    expect(all(b[1])).toContain(FREE_CALL_LINE);
+  });
+
+  it("ปฏิเสธให้เบอร์ → ไม่ตื๊อ ไม่ลงเวลายินยอม ส่งต่อ", async () => {
+    const out = await chat("100 ล้านขึ้นไป", "งานในโรงงาน", "นับสต็อก", "โรงสี", "ยังไม่อยากให้ครับ");
+    expect(out[4]).toMatchObject({ kind: "handoff", text: VOICE.declinedContact });
+    expect(state.savedLeads[0]).toMatchObject({ phone: null, lineId: null, consentAt: null });
+  });
+
+  it("นอกเรื่อง 2 ครั้งติด → ส่งต่อ", async () => {
+    extractMock.mockResolvedValue({ ...plain, intent: "off_topic" });
+    const out = await chat("100 ล้านขึ้นไป", "อากาศร้อนจัง", "ฝนจะตกไหม");
+    expect(texts(out[1])[0]).toBe(VOICE.offTopic);
+    expect(out[2]).toMatchObject({ kind: "handoff", text: VOICE.toHuman });
   });
 });
 
 describe("รั้วกันโมเดลแต่ง", () => {
-  it("โมเดลยัดราคา/ตัวเลข/เบอร์ปลอมมา → ไม่หลุดถึงลูกค้า และไม่ถูกบันทึก", async () => {
+  it("โมเดลยัดราคา/วันที่ → ไม่หลุดถึงลูกค้าและไม่ถูกบันทึก · ข้อความขาออกมีแต่ตัวเลขที่อนุญาต", async () => {
     extractMock.mockResolvedValue({
-      fields: {
-        business_type: "ร้านกาแฟ แพ็กเกจ 9,900 บาท",
-        team_size: "25 คน",
-        pain: "ตอบแชท ลด 30% ภายใน 15 ธันวาคม",
-        name: "สมชาย",
-        // ช่องที่ไม่มีใน schema ต้องถูกทิ้ง
-        reply: "ราคาพิเศษ 5,000 บาทครับ",
-      } as unknown as Record<string, string>,
-      intent: "answer",
-      inputTokens: 5,
-      outputTokens: 5,
-      latencyMs: 1,
+      ...plain,
+      fields: { task: "แพ็กเกจ 9,900 บาท", pain: "ลด 30% ภายใน 15 ธันวาคม", reply: "ราคาพิเศษ 5,000 บาท" } as Record<string, string>,
     });
-    const out = await chat(
-      "100 ล้านขึ้นไป",
-      "ร้านกาแฟครับ",
-      "12 คน",
-      "ตอบแชทลูกค้า",
-      "ตัดสินใจเอง",
-      "เร็ว ๆ นี้",
-      "ไม่สะดวกครับ",
-    );
-    expect(out[6].kind).toBe("handoff");
-
+    const out = await chat("100 ล้านขึ้นไป", "ตอบแชทลูกค้า", "ตอบแชทซ้ำทุกวัน", "ร้านกาแฟ", "ไม่สะดวกครับ");
     const allowed = allowedMoneyFigures();
     for (const a of out) {
-      for (const fact of extractRiskyFacts(textOf(a))) expect(allowed).toContain(fact);
-      expect(textOf(a)).not.toMatch(/9,900|5,000|30%|15 ธันวาคม|สมชาย/);
+      for (const f of extractRiskyFacts(all(a))) expect(allowed).toContain(f);
+      expect(all(a)).not.toMatch(/9,900|5,000|15 ธันวาคม/);
     }
-    const fields = (state.savedLeads[0].qualification as { fields: Record<string, string> }).fields;
-    expect(JSON.stringify(fields)).not.toMatch(/9,900|25 คน|15 ธันวาคม|สมชาย|5,000/);
-    expect(fields.business_type).toBe("ร้านกาแฟ"); // กลับไปใช้คำของลูกค้าเอง
-    extractMock.mockReset();
-    extractMock.mockResolvedValue({ fields: {}, intent: "answer", inputTokens: 5, outputTokens: 5, latencyMs: 1 });
+    expect(JSON.stringify(state.savedLeads[0].qualification)).not.toMatch(/9,900|15 ธันวาคม|5,000/);
   });
 
-  it("โมเดลล้ม → ใช้กติกาตายตัวเดินต่อได้ ลูกค้าไม่ค้าง", async () => {
-    extractMock.mockRejectedValueOnce(new Error("429 quota"));
-    const out = await chat("100 ล้านขึ้นไป", "ธุรกิจรับเหมาก่อสร้าง ทีม 60 คน");
-    expect(textOf(out[1])).toBe(SCRIPT.pain);
-  });
-
-  it("ถึงเพดานโมเดลของวัน → ไม่เรียกโมเดล แต่ยังเดินโฟลว์ได้", async () => {
+  it("โมเดลล้ม / ถึงเพดาน → เดินต่อด้วยกติกาตายตัว", async () => {
+    extractMock.mockRejectedValueOnce(new Error("429"));
+    expect(texts((await chat("100 ล้านขึ้นไป", "งานในโรงงาน"))[1])).toEqual([VOICE.pain]);
+    reset();
     state.aiCallsToday = 9999;
-    const out = await chat("100 ล้านขึ้นไป", "ธุรกิจคลินิกความงาม 15 คน");
+    extractMock.mockClear();
+    await chat("100 ล้านขึ้นไป", "งานในโรงงาน");
     expect(extractMock).not.toHaveBeenCalled();
-    expect(textOf(out[1])).toBe(SCRIPT.pain);
   });
 });
 
-function beforeEachReset() {
-  state.conversation = {
-    id: "c1",
-    page_id: "P1",
-    contact_id: "u1",
-    state: "bot_active",
-    lead_step: null,
-    lead_draft: {},
-    last_user_message_at: null,
-  };
-  state.savedLeads = [];
-}
+describe("บั๊กคำถามถูกเก็บเป็นชื่อ (โฟลว์ชื่อ-เบอร์เดิม)", () => {
+  it("ระหว่างรอชื่อ ลูกค้าพิมพ์คำถาม → ไม่เก็บเป็นชื่อ ไม่ขอเบอร์ต่อ", async () => {
+    state.conversation.state = "collecting_lead";
+    state.conversation.lead_step = "name";
+    state.conversation.lead_draft = { interest_seed: "สนใจ", lead_type: "individual" };
+    const out = await say("ผมอยากได้แบบวิธีทำเลย");
+    expect(state.conversation.lead_step).toBe("name");
+    expect((state.conversation.lead_draft as { name?: string }).name).toBeUndefined();
+    expect(all(out)).toContain("ขอชื่อก่อนครับ");
+  });
+});
+
+describe("ส่งไฟล์มา", () => {
+  it("→ บอกว่าได้รับ + ส่งต่อ · ระหว่างคนถือสาย → เงียบ", async () => {
+    expect(await handleAttachment({ pageId: "P1", psid: "u", text: "", mid: "a1" })).toMatchObject({
+      kind: "handoff",
+      text: "ได้รับไฟล์แล้วครับ เดี๋ยวผมเปิดดูให้",
+    });
+    state.conversation.state = "human_active";
+    expect((await handleAttachment({ pageId: "P1", psid: "u", text: "", mid: "a2" })).kind).toBe("silent");
+  });
+});

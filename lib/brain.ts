@@ -24,11 +24,13 @@ import {
 } from "./matching";
 import * as store from "./store";
 import type { Conversation } from "./store";
-import { detectAdEntry, isQualDraft } from "./qualifier";
+import { VOICE, detectAdEntry, isBotQuestion, isLikelyName, isQualDraft, looksLikeQuestion, type OutPart } from "./qualifier";
 import { continueQualifier, finishQualifier, startQualifier } from "./qualifier-flow";
 
 export type BotAction =
   | { kind: "text"; text: string; source: string; confidence?: number }
+  /** หลายข้อความติดกัน (แต่ละข้อความมีปุ่มได้) — ตาม BOT-VOICE "ข้อความ 1 / 2 / 3 ส่งแยกกัน" */
+  | { kind: "multi"; parts: OutPart[]; source: string }
   | {
       kind: "quick_replies";
       text: string;
@@ -36,24 +38,32 @@ export type BotAction =
       source: string;
     }
   /** summary = สรุปให้แอดมิน (บันทึกเป็นข้อความจากระบบในแชท ลูกค้าไม่เห็น) */
-  | { kind: "handoff"; text: string; reason: string; summary?: string }
+  | { kind: "handoff"; text: string; reason: string; summary?: string; pre?: OutPart[] }
   | { kind: "silent"; reason: string };
 
 const MENU_REPLIES = [
   { title: "คอร์สที่เปิดอยู่", payload: "MENU_COURSES" },
-  { title: "ราคา/รอบอบรม", payload: "MENU_PRICE" },
-  { title: "จัดอบรมในองค์กร", payload: "MENU_CORPORATE" },
-  { title: "คุยกับทีมงาน", payload: "MENU_HUMAN" },
+  { title: "ราคา/รอบเรียน", payload: "MENU_PRICE" },
+  { title: "อบรมในบริษัท", payload: "MENU_CORPORATE" },
+  { title: "คุยกับต้น", payload: "MENU_HUMAN" },
 ];
+
+/** ค่าสำรองเมื่อยังไม่มีแถวใน settings — ข้อความหลักแก้ได้ที่หน้าแอดมิน (BOT-VOICE 2.6) */
+const DEFAULT_GREETING = "สวัสดีครับ ผมต้น TONPALEARN\nอยากให้ช่วยเรื่องไหนครับ กดเลือกด้านล่างได้เลย";
+const DEFAULT_HANDOFF = "เดี๋ยวผมเข้ามาคุยต่อในแชทนี้ครับ";
+const DEFAULT_PERSONA =
+  "คุณพิมพ์แชทแทนต้น เจ้าของเพจ TONPALEARN ใช้สรรพนาม \"ผม\" ตอบ 1–3 บรรทัด ถามได้ 1 คำถามต่อข้อความ " +
+  "ห้ามขึ้นต้นด้วยคำทักทายหรือคำขอบคุณซ้ำ ห้ามบอกเหตุผลของการถาม ห้ามสัญญาผลลัพธ์หรือเวลา " +
+  "ใช้ตัวเลขได้เฉพาะที่อยู่ในเนื้อหาอ้างอิง ถ้าลูกค้าถามว่าคุยกับบอทหรือคน ให้ตอบว่าเป็นระบบตอบอัตโนมัติ";
 
 /** ขั้นตอนเก็บข้อมูลผู้สนใจ ทีละคำถาม ไม่ถามรวดเดียว */
 const LEAD_STEPS = ["name", "contact", "interest"] as const;
 type LeadStep = (typeof LEAD_STEPS)[number];
 
 const LEAD_QUESTIONS: Record<LeadStep, string> = {
-  name: "ขอทราบชื่อที่ให้ทีมงานเรียกหน่อยครับ",
-  contact: "ขอเบอร์โทรหรืออีเมลสำหรับติดต่อกลับครับ",
-  interest: "สนใจเรื่องไหนเป็นพิเศษครับ (เช่น คอร์สไหน หรือ อยากจัดอบรมในองค์กร)",
+  name: "ขอชื่อก่อนครับ",
+  contact: "เบอร์โทร อีเมล หรือ LINE ID ครับ",
+  interest: "สนใจแบบไหนครับ เรียนเอง หรือจัดอบรมในบริษัท",
 };
 
 export interface IncomingMessage {
@@ -103,19 +113,25 @@ export async function handleIncoming(msg: IncomingMessage): Promise<BotAction> {
     if (fromPostback) return fromPostback;
   }
 
+  // ── ชั้น 2: ถามว่าคุยกับบอทหรือคน → ตอบตรงเสมอว่าเป็นระบบตอบอัตโนมัติ แล้วส่งต่อต้น ──
+  const inQualifierNow = convo.state === "collecting_lead" && isQualDraft(convo.lead_draft);
+  if (isBotQuestion(text) && !inQualifierNow) {
+    return { kind: "handoff", text: VOICE.isBot, reason: "ลูกค้าถามว่าคุยกับบอทหรือคน" };
+  }
+
   // ── ชั้น 2: คำสั่งพิเศษ ──────────────────────────────────────────────
   const special = detectSpecialCommand(text);
   const inQualifier = convo.state === "collecting_lead" && isQualDraft(convo.lead_draft);
   if (special === "handoff" || special === "stop_bot") {
     if (inQualifier) {
       // ขอคุยกับคนกลางทาง → เก็บเท่าที่ได้ + สรุปให้คน ไม่ทิ้งข้อมูลที่ถามมาแล้ว
-      const notice = await store.getSetting("handoff_notice", "กำลังเรียกทีมงานมาคุยต่อให้ครับ สักครู่นะครับ");
+      const notice = await store.getSetting("handoff_notice", DEFAULT_HANDOFF);
       return finishQualifier(
         convo,
-        contactId,
+        { contactId, psid: msg.psid },
         convo.lead_draft as unknown as Parameters<typeof finishQualifier>[2],
         "ลูกค้าขอคุยกับคน",
-        notice,
+        [{ text: notice }],
       );
     }
     return startHandoff(convo.id, "ลูกค้าขอคุยกับคน");
@@ -124,7 +140,7 @@ export async function handleIncoming(msg: IncomingMessage): Promise<BotAction> {
     await store.updateConversation(convo.id, { state: "bot_active", lead_step: null, lead_draft: {} });
     return {
       kind: "quick_replies",
-      text: await store.getSetting("greeting", "อยากให้ช่วยเรื่องไหนดีครับ"),
+      text: await store.getSetting("greeting", DEFAULT_GREETING),
       replies: MENU_REPLIES,
       source: "menu",
     };
@@ -132,7 +148,7 @@ export async function handleIncoming(msg: IncomingMessage): Promise<BotAction> {
 
   // ── ชั้น 3: กำลังเก็บข้อมูลผู้สนใจ ────────────────────────────────────
   if (inQualifier) {
-    return continueQualifier(convo, contactId, text);
+    return continueQualifier(convo, { contactId, psid: msg.psid }, text);
   }
   if (convo.state === "collecting_lead") {
     return continueLeadCollection(convo, contactId, text);
@@ -153,7 +169,7 @@ export async function handleIncoming(msg: IncomingMessage): Promise<BotAction> {
     if (hit.action === "menu") {
       return {
         kind: "quick_replies",
-        text: hit.reply_text ?? "เลือกหัวข้อที่สนใจได้เลยครับ",
+        text: hit.reply_text ?? "กดเลือกได้เลยครับ",
         replies: hit.quick_replies ?? MENU_REPLIES,
         source: `rule:${hit.name}`,
       };
@@ -203,7 +219,7 @@ export async function handleIncoming(msg: IncomingMessage): Promise<BotAction> {
     const history = await store.getHistory(convo.id, env.brain.historyTurns());
     const persona = await store.getSetting(
       "bot_persona",
-      "คุณคือผู้ช่วยตอบแชทของเพจ พูดสุภาพ กระชับ ลงท้ายว่า ครับ",
+      DEFAULT_PERSONA,
     );
     const ai = await answerFromKnowledge({
       question: text,
@@ -256,7 +272,7 @@ async function handlePostback(
     case "GET_STARTED":
       return {
         kind: "quick_replies",
-        text: await store.getSetting("greeting", "สวัสดีครับ อยากให้ช่วยเรื่องไหนดีครับ"),
+        text: await store.getSetting("greeting", DEFAULT_GREETING),
         replies: MENU_REPLIES,
         source: "postback:get_started",
       };
@@ -297,7 +313,7 @@ async function beginLeadCollection(conversationId: string, seedInterest: string)
   });
   const consent = await store.getSetting(
     "consent_notice",
-    "ขออนุญาตเก็บชื่อและช่องทางติดต่อไว้ให้ทีมงานติดต่อกลับเท่านั้นนะครับ",
+    "ขอเบอร์โทรหรือ LINE ไว้นัดคุยครับ ถ้ายังไม่อยากให้ก็บอกได้",
   );
   return {
     kind: "text",
@@ -319,12 +335,20 @@ async function continueLeadCollection(
     await store.updateConversation(convo.id, { state: "bot_active", lead_step: null });
     return {
       kind: "text",
-      text: "ได้ครับ ไม่เก็บข้อมูลนะครับ ถ้าอยากถามอะไรเพิ่มพิมพ์มาได้เลยครับ",
+      text: "ได้ครับ ไม่เป็นไร อยากถามอะไรพิมพ์มาได้เลย",
       source: "lead:declined",
     };
   }
 
   if (step === "name") {
+    // บั๊กเดิม: คำถามของลูกค้า ("ผมอยากได้แบบวิธีทำเลย") ถูกเก็บเป็นชื่อ แล้วบอตขอเบอร์ต่อ
+    if (!isLikelyName(text)) {
+      const questions = Array.isArray(draft.questions) ? (draft.questions as string[]) : [];
+      if (looksLikeQuestion(text) || text.trim().length > 30) questions.push(text.slice(0, 200));
+      draft.questions = questions;
+      await store.updateConversation(convo.id, { lead_draft: draft });
+      return { kind: "text", text: `ข้อนี้เดี๋ยวผมตอบเองในแชทนี้ครับ\n${LEAD_QUESTIONS.name}`, source: "lead:retry_name" };
+    }
     draft.name = text.slice(0, 120);
   } else if (step === "contact") {
     const phone = extractPhone(text);
@@ -332,7 +356,7 @@ async function continueLeadCollection(
     if (!phone && !email) {
       return {
         kind: "text",
-        text: "ขอเป็นเบอร์โทร 10 หลัก หรืออีเมลก็ได้ครับ",
+        text: "ขอเป็นเบอร์ 10 หลัก หรืออีเมลครับ",
         source: "lead:retry_contact",
       };
     }
@@ -357,7 +381,9 @@ async function continueLeadCollection(
     name: (draft.name as string) ?? null,
     phone: (draft.phone as string) ?? null,
     email: (draft.email as string) ?? null,
-    interest,
+    interest: Array.isArray(draft.questions) && draft.questions.length
+      ? `${interest} · ถามไว้: ${(draft.questions as string[]).join(" / ")}`
+      : interest,
     leadType: looksCorporate(interest) || draft.lead_type === "corporate" ? "corporate" : "individual",
     consentAt: (draft.consent_at as string) ?? new Date().toISOString(),
   });
@@ -368,18 +394,42 @@ async function continueLeadCollection(
     unread_for_admin: true,
   });
 
-  const hours = await store.getSetting("office_hours", "");
+  // office_hours: ต้นยังไม่ยืนยันเวลาจริง → ไม่บอกเวลา (BOT-VOICE ข้อ 5 #7)
   return {
     kind: "text",
-    text: `รับข้อมูลเรียบร้อยครับ เดี๋ยวทีมงานติดต่อกลับนะครับ 🙏${hours ? `\n${hours}` : ""}`,
+    text: "ขอบคุณครับ เดี๋ยวผมติดต่อกลับนะครับ",
     source: "lead:done",
   };
 }
 
 async function startHandoff(conversationId: string, reason: string): Promise<BotAction> {
-  const notice = await store.getSetting(
-    "handoff_notice",
-    "กำลังเรียกทีมงานมาคุยต่อให้ครับ สักครู่นะครับ",
-  );
+  const notice = await store.getSetting("handoff_notice", DEFAULT_HANDOFF);
   return { kind: "handoff", text: notice, reason };
+}
+
+/**
+ * ลูกค้าส่งรูป/ไฟล์มาโดยไม่มีข้อความ (BOT-VOICE 2.7)
+ * ส่งมาเพราะอยากให้ดู (สลิป · ใบกำกับ · ภาพหน้าจอ) → บอกว่าได้รับแล้ว แล้วส่งต่อต้น ไม่โยนงานคืนให้พิมพ์ใหม่
+ * ระหว่างคนถือสาย / ปิดบอต → เงียบ แต่ยังบันทึก
+ */
+export async function handleAttachment(msg: IncomingMessage): Promise<BotAction> {
+  const contactId = await store.upsertContact({ pageId: msg.pageId, psid: msg.psid });
+  const convo = await store.getOrCreateConversation(msg.pageId, contactId);
+  await store.saveMessage({
+    conversationId: convo.id,
+    pageId: msg.pageId,
+    mid: msg.mid,
+    direction: "in",
+    sender: "user",
+    content: "(ส่งไฟล์แนบมา)",
+  });
+  await store.updateConversation(convo.id, {
+    last_user_message_at: new Date().toISOString(),
+    unread_for_admin: true,
+  });
+  if (convo.state === "human_active" || convo.state === "awaiting_human") {
+    return { kind: "silent", reason: "คนกำลังดูแลบทสนทนานี้อยู่" };
+  }
+  if (!(await store.isBotEnabled(msg.pageId))) return { kind: "silent", reason: "บอตถูกปิดไว้ทั้งเพจ" };
+  return { kind: "handoff", text: "ได้รับไฟล์แล้วครับ เดี๋ยวผมเปิดดูให้", reason: "ลูกค้าส่งไฟล์/รูปมา" };
 }

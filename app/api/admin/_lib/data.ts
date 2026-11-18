@@ -156,6 +156,13 @@ export interface ConversationDetail {
   psid: string;
   lastUserMessageAt: string | null;
   messages: MessageRow[];
+  /** migration 0004 — ร่างตามรอบ 2 ที่บอตห้ามส่งเอง + การตามอัตโนมัติ */
+  followup: {
+    draft: string | null;
+    draftAt: string | null;
+    sentAt: string | null;
+    variant: string | null;
+  };
 }
 
 export async function getConversation(id: string): Promise<ConversationDetail | null> {
@@ -172,6 +179,19 @@ export async function getConversation(id: string): Promise<ConversationDetail | 
 
   const row = data as unknown as RawConversation;
   const contact = pickContact(row.contact);
+
+  // ช่องตามต่อ (0004) อ่านแยก — ยังไม่รัน migration ก็เปิดหน้าแชทได้ตามเดิม
+  const fu = await db()
+    .from("conversations")
+    .select("followup_draft,followup_draft_at,followup_sent_at,followup_variant")
+    .eq("id", id)
+    .maybeSingle();
+  const fuRow = (fu.error ? null : fu.data) as {
+    followup_draft: string | null;
+    followup_draft_at: string | null;
+    followup_sent_at: string | null;
+    followup_variant: string | null;
+  } | null;
 
   const msgs = await db()
     .from("messages")
@@ -206,6 +226,12 @@ export async function getConversation(id: string): Promise<ConversationDetail | 
     psid: contact?.psid ?? "",
     lastUserMessageAt: row.last_user_message_at,
     messages,
+    followup: {
+      draft: fuRow?.followup_draft ?? null,
+      draftAt: fuRow?.followup_draft_at ?? null,
+      sentAt: fuRow?.followup_sent_at ?? null,
+      variant: fuRow?.followup_variant ?? null,
+    },
   };
 }
 

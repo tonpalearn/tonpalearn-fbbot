@@ -82,7 +82,15 @@ const brainMock = vi.fn(async () => ({
   source: "faq",
   confidence: 0.9,
 }));
-vi.mock("@/lib/brain", () => ({ handleIncoming: (...a: unknown[]) => brainMock(...(a as [])) }));
+const attachmentMock = vi.fn(async () => ({
+  kind: "handoff" as const,
+  text: "ได้รับไฟล์แล้วครับ เดี๋ยวผมเปิดดูให้",
+  reason: "ลูกค้าส่งไฟล์/รูปมา",
+}));
+vi.mock("@/lib/brain", () => ({
+  handleIncoming: (...a: unknown[]) => brainMock(...(a as [])),
+  handleAttachment: (...a: unknown[]) => attachmentMock(...(a as [])),
+}));
 
 const { GET, POST } = await import("@/app/api/webhook/facebook/route");
 
@@ -135,6 +143,7 @@ beforeEach(() => {
   sent.actions = [];
   sent.passed = 0;
   brainMock.mockClear();
+  attachmentMock.mockClear();
 });
 
 describe("GET — ยืนยัน webhook", () => {
@@ -237,7 +246,7 @@ describe("POST — เหตุการณ์ที่ไม่ใช่ข้�
     expect(sent.text).toHaveLength(0);
   });
 
-  it("ส่งรูปมาโดยไม่มีข้อความ → ตอบรับว่าได้รับแล้ว ไม่เรียกสมองบอต", async () => {
+  it("ส่งรูปมาโดยไม่มีข้อความ → ตอบรับว่าได้รับแล้ว + ส่งต่อต้น (ไม่โยนงานคืนให้พิมพ์ใหม่)", async () => {
     await post({
       object: "page",
       entry: [
@@ -254,7 +263,35 @@ describe("POST — เหตุการณ์ที่ไม่ใช่ข้�
     });
     await settle();
     expect(brainMock).not.toHaveBeenCalled();
-    expect(sent.text[0]).toContain("ได้รับไฟล์แล้ว");
+    expect(attachmentMock).toHaveBeenCalledTimes(1);
+    expect(sent.text[0]).toBe("ได้รับไฟล์แล้วครับ เดี๋ยวผมเปิดดูให้");
+    expect(sent.passed).toBe(1);
+  });
+
+  it("คำตอบหลายข้อความ: ส่งแยกทีละข้อความตามลำดับ · ข้อความที่มีปุ่มส่งเป็น quick reply", async () => {
+    brainMock.mockResolvedValueOnce({
+      kind: "multi",
+      parts: [{ text: "ข้อความ 1" }, { text: "ข้อความ 2 มีปุ่ม", replies: [{ title: "ก", payload: "A" }] }],
+      source: "qualifier:test",
+    } as never);
+    await post(textEvent("100 ล้านขึ้นไป", "multi-1"));
+    await settle();
+    expect(sent.text).toEqual(["ข้อความ 1"]);
+    expect(sent.quickReplies).toBe(1);
+  });
+
+  it("โอนสายที่มีข้อความนำ: ส่งข้อความนำก่อน แล้วค่อยข้อความโอนสาย", async () => {
+    brainMock.mockResolvedValueOnce({
+      kind: "handoff",
+      pre: [{ text: "เคส" }, { text: "ลิงก์" }],
+      text: "เดี๋ยวผมเข้ามาเสนอเวลา",
+      reason: "test",
+      summary: "สรุป",
+    } as never);
+    await post(textEvent("ตัวอย่าง", "pre-1"));
+    await settle();
+    expect(sent.text).toEqual(["เคส", "ลิงก์", "เดี๋ยวผมเข้ามาเสนอเวลา"]);
+    expect(sent.passed).toBe(1);
   });
 
   it("object ไม่ใช่ page → ไม่ทำอะไร", async () => {

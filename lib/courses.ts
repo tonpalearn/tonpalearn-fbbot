@@ -51,19 +51,19 @@ export function courseById(id: string): Course | undefined {
 
 const baht = (n: number) => n.toLocaleString("en-US");
 
-/** บรรทัดแนะนำคอร์ส (ไม่มีราคา) */
+/** บรรทัดแนะนำคอร์ส (ไม่มีราคา) — รูปแบบตาม docs/BOT-VOICE.md ข้อ 2.4 */
 export function courseLine(c: Course): string {
-  const pre = c.prereq ? ` · ควรเรียน ${courseById(c.prereq)?.name ?? c.prereq} ก่อน` : "";
-  return `• ${c.name} (${c.hours} ชม.)${pre}`;
+  const pre = c.prereq ? ` · ต้องผ่าน ${courseById(c.prereq)?.name ?? c.prereq} ก่อน` : "";
+  return `• ${c.name} ${c.hours} ชม.${pre}`;
 }
 
-/** บรรทัดราคาของคอร์ส — ใช้เฉพาะตอนลูกค้าถามราคา */
+/** บรรทัดราคาของคอร์ส — ใช้เฉพาะตอนลูกค้าถามราคา/เลือกรูปแบบเรียน · คำ Online/Onsite/ท่านต่อไป ตามที่ต้นพิมพ์ในแชทจริง */
 export function coursePriceLine(c: Course): string {
   const p = TIER_PRICES[c.tier];
-  if (!p) return `• ${c.name}: ราคาตามขอบเขตงาน ทีมงานจะแจ้งให้ครับ`;
+  if (!p) return `• ${c.name}: ราคาตามขอบเขตงาน เดี๋ยวผมแจ้งให้ครับ`;
   return (
-    `• ${c.name}: ออนไลน์ (Zoom) ${baht(p.online)} บาท · ที่ออฟฟิศ ${baht(p.onsite)} บาท` +
-    ` · มาด้วยกัน คนต่อไปคนละ ${baht(p.nextPerson)} บาท`
+    `• ${c.name} ${c.hours} ชม.\n` +
+    `Online ${baht(p.online)} · Onsite ${baht(p.onsite)} · ท่านต่อไป ${baht(p.nextPerson)} บาท`
   );
 }
 
@@ -76,11 +76,13 @@ export function recommendCourses(useCase: string): Course[] {
   const picks: string[] = [];
   const add = (...ids: string[]) => ids.forEach((i) => !picks.includes(i) && picks.push(i));
 
+  // งานซ้ำ / workflow / automation → AI Agentic (02) ก่อนเสมอ (BOT-VOICE ข้อ 3.5)
+  if (/workflow|เวิร์กโฟลว์|เวิร์คโฟลว์|เวิร์กโฟล|ทำงานอัตโนมัติ|งานซ้ำ|automation|automate|อัตโนมัติ/.test(t)) add("02");
   if (/แชตบอท|แชทบอท|แชตบอต|แชทบอต|chat\s?bot|ตอบแชท|ไลน์\s?oa|line\s?oa|line bot|ไลน์บอท/.test(t)) add("04");
   if (/คอนเทนต์|คอนเท้นต์|content|โพสต์|คลิป|วิดีโอ|วีดีโอ|youtube|tiktok|ยูทูป/.test(t)) add("11");
   if (/เว็บ|web|landing|หน้าเพจขาย/.test(t)) add("08");
   if (/แอป|แอพ|\bapp\b|ฐานข้อมูล|database|login|ล็อกอิน/.test(t)) add("09");
-  if (/เอเจนต์|agent|อัตโนมัติ|automate|automation|หลาย\s?agent|ทีม ai/.test(t)) add("02", "10");
+  if (/เอเจนต์|agent|หลาย\s?agent|ทีม ai/.test(t)) add("02", "10");
   if (/เชื่อม|connector|mcp|google sheet|ชีต|drive/.test(t)) add("03");
   // ระวัง "ลูก" เฉย ๆ จะไปติด "ลูกค้า"
   if (/เด็ก|ลูกชาย|ลูกสาว|ให้ลูก|นักเรียน|ม\.\d/.test(t)) add("05");

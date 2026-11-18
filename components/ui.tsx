@@ -149,6 +149,10 @@ export function SourceTag({ source }: { source: string | null }) {
                 ? "คัดลูกค้าจากแอด"
                 : source === "lead_summary"
                   ? "สรุปผู้สนใจ (ลูกค้าไม่เห็น)"
-                  : source;
+                  : source.startsWith("followup:")
+                    ? "ตามต่ออัตโนมัติ"
+                    : source === "handoff_pre"
+                      ? "ก่อนโอนหาคน"
+                      : source;
   return <span className="soft text-[0.8rem]">{label}</span>;
 }

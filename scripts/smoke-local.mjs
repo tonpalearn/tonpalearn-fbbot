@@ -46,7 +46,7 @@ const now = () => new Date().toISOString();
 const uuid = () => crypto.randomUUID();
 const DEFAULTS = {
   contacts: () => ({ first_seen_at: now(), last_seen_at: now() }),
-  conversations: () => ({ state: "bot_active", lead_step: null, lead_draft: {}, unread_for_admin: false, created_at: now(), updated_at: now() }),
+  conversations: () => ({ state: "bot_active", lead_step: null, lead_draft: {}, unread_for_admin: false, created_at: now(), updated_at: now(), followup_sent_at: null, followup_variant: null, followup_draft: null, followup_draft_at: null }),
   messages: () => ({ created_at: now() }),
   webhook_events: () => ({ received_at: now(), status: "processing", error_note: null }),
   leads: () => ({ status: "new", created_at: now(), qualification: {} }),
@@ -72,6 +72,8 @@ const db = {
     // ค่าเดียวกับ supabase/migrations/0002_seed.sql
     { key: "handoff_notice", value: { text: "กำลังเรียกทีมงานมาคุยต่อให้ครับ ระหว่างรอ พิมพ์ทิ้งไว้ได้เลยครับ" } },
     { key: "greeting", value: { text: "สวัสดีครับ ยินดีต้อนรับสู่ TONPALEARN 🙏 อยากให้ช่วยเรื่องไหนดีครับ" } },
+    // ช่องเวลาว่างที่ต้นกรอก (ตัวอย่างสมมติ · ชื่อวันตรงกับวันที่จริงของปี 2569) — SMOKE_NO_SLOTS=1 = ไม่กรอก
+    { key: "meeting_slots", value: { text: process.env.SMOKE_NO_SLOTS ? "" : "ศุกร์ 20 พ.ย. 14:00\nอังคาร 24 พ.ย. 10:00" } },
   ],
   rules: [
     { id: uuid(), page_id: PAGE, name: "ไม่สนใจ", match_type: "regex", pattern: "(ไม่สนใจ|ไม่เอา|ไม่ต้องการ|ขอบคุณครับ พอแล้ว)", action: "reply", reply_text: "ได้ครับ ขอบคุณที่แวะเข้ามานะครับ ถ้าสนใจเมื่อไรทักมาได้เลยครับ 🙏", quick_replies: null, priority: 5, is_active: true },
@@ -223,6 +225,10 @@ function graph(req, res, url, body) {
   }
   if (req.method === "GET" && edge === "conversations") return json(fakeConversations(url));
   if (req.method === "GET" && parts[3]?.startsWith("t_")) return json(fakeMessagesPage(url, parts[3]));
+  // โปรไฟล์ Messenger (ชื่อสมมติ ไม่ใช่คนจริง)
+  if (req.method === "GET" && url.searchParams.get("fields")?.includes("first_name")) {
+    return json({ first_name: "ลูกค้า", last_name: `สมมติ${parts[3]?.slice(-1) ?? ""}` });
+  }
   return json({ success: true });
 }
 
@@ -334,29 +340,87 @@ async function waitReply(psid, since, ms = 20000) {
 }
 
 const scenarios = [
-  { name: "ปุ่ม 100 ล้านขึ้นไป · ตอบครบจนให้เบอร์", lines: ["100 ล้านขึ้นไป", "โรงงานผลิตอาหารแช่แข็ง ทีมประมาณ 40 คนครับ", "ทีมบัญชีต้องรวมยอดจาก Excel หลายไฟล์ทุกสิ้นเดือน", "ผมตัดสินใจเองได้ครับ", "ภายใน 2 เดือนครับ", "เอก", "081-234-5678", "ยังอยู่ไหมครับ"] },
-  { name: "ปุ่ม 10–100 ล้าน · ถามราคา แล้วขอคุยกับคน", lines: ["10–100 ล้าน", "ราคาเท่าไรครับ", "บริษัทนำเข้าอะไหล่รถ 25 คน", "ขอคุยกับคนครับ", "ยังอยู่ไหมครับ"] },
-  { name: "ปุ่ม ต่ำกว่า 10 ล้าน · นอกเรื่อง 1 ครั้ง แล้วปฏิเสธให้เบอร์", lines: ["ต่ำกว่า 10 ล้าน", "วันนี้อากาศร้อนจัง", "ร้านขนมออนไลน์ อยากให้ AI ช่วยตอบแชท", "5 คน", "ตัดสินใจเองครับ", "ยังไม่รีบครับ", "ไม่สะดวกให้เบอร์ครับ"] },
-  { name: "ปุ่ม อยากเรียน AI เอง · แนะนำคอร์ส + ถามราคา + ให้ LINE", lines: ["อยากเรียน AI เอง", "อยากใช้ทำคอนเทนต์ลงเพจกับทำคลิป", "ราคาเท่าไรครับ", "แอน", "LINE: ann.cafe"] },
-  { name: "พิมพ์ขอรายละเอียด (ข้อความจริงจากแอด) · แล้วขอนัด", lines: ["ขอราบละเอียดบริการ และกรณีตัวอย่างต่าวๆที่ทำแล้วลูกค้าใช้งานได้จริง ได้ไหมครับ", "โรงสีข้าว ทีม 30 คน", "ขอนัดคุยวันศุกร์ได้ไหมครับ"] },
+  { key: "a", name: "(a) ปุ่ม 100 ล้านขึ้นไป · จนส่งต่อต้น", lines: ["100 ล้านขึ้นไป", "สรุปตัวเลขผู้บริหาร", "ต้องรวมยอดขายจากหลายสาขาทุกเช้า", "กลุ่มบริษัทค้าปลีก 4 บริษัท", "อังคาร 24 พ.ย. 10:00", "081-234-5678", "ยังอยู่ไหมครับ"] },
+  { key: "b", name: "(b) เจ้าของโรงงาน ถาม 'มีตัวอย่างไหม' แล้วถาม 'SI?'", lines: ["10–100 ล้าน", "งานในโรงงาน", "มีตัวอย่างไหมครับ", "โรงงานฉีดพลาสติก", "SI?", "ไม่มี"] },
+  { key: "c", name: "(c) ถามว่า 'นี่บอทตอบเหรอ'", lines: ["100 ล้านขึ้นไป", "นี่บอทตอบเหรอครับ", "ยังอยู่ไหมครับ"] },
+  { key: "d", name: "(d) ลูกค้าเงียบหลังคำถามแรก (ใช้ต่อในช่วงตามอัตโนมัติ)", lines: ["ต่ำกว่า 10 ล้าน"] },
 ];
 
+const psidOf = {};
 let i = 0;
 for (const sc of scenarios) {
   const psid = `smoke_psid_${++i}`;
-  console.log(`\n━━━━━━━━ ${i}. ${sc.name} ━━━━━━━━`);
+  psidOf[sc.key] = psid;
+  console.log(`\n━━━━━━━━ ${sc.name} ━━━━━━━━`);
   for (const line of sc.lines) {
     const t0 = Date.now();
     console.log(`👤 ลูกค้า: ${line}`);
     await sendToBot(psid, line);
     const got = await waitReply(psid, t0, line === "ยังอยู่ไหมครับ" ? 3000 : 20000);
     if (got.length === 0) console.log("🤖 บอต: (เงียบ)");
-    for (const o of got) {
-      if (o.text) console.log(`🤖 บอต: ${o.text.replace(/\n/g, "\n         ")}${o.quickReplies ? `  [ปุ่ม: ${o.quickReplies.join(" | ")}]` : ""}`);
-      if (o.pass) console.log(`   ↪ โอนสายให้ Page Inbox (app ${o.pass})`);
-    }
+    printOut(got);
   }
 }
+
+function printOut(got) {
+  for (const o of got) {
+    if (o.text) console.log(`🤖 บอต: ${o.text.replace(/\n/g, "\n         ")}${o.quickReplies ? `\n         [ปุ่ม: ${o.quickReplies.join(" | ")}]` : ""}`);
+    if (o.pass) console.log(`   ↪ โอนสายให้ Page Inbox (app ${o.pass})`);
+  }
+}
+
+// ═════════════════════ (d) ตามต่ออัตโนมัติผ่าน /api/cron/followup ═════════════════════
+async function cron(secret = process.env.CRON_SECRET) {
+  const res = await fetch(`${BOT}/api/cron/followup`, { headers: secret ? { authorization: `Bearer ${secret}` } : {} });
+  const body = await res.text();
+  return { status: res.status, body: body.startsWith("{") ? JSON.parse(body) : body };
+}
+const convoOf = (psid) => {
+  const c = db.contacts.find((x) => x.psid === psid);
+  return db.conversations.find((x) => x.contact_id === c?.id);
+};
+const ago = (h) => new Date(Date.now() - h * 3600_000).toISOString();
+
+console.log("\n━━━━━━━━ (d) ตามต่ออัตโนมัติ ━━━━━━━━");
+const dConvo = convoOf(psidOf.d);
+console.log(`เรียก cron ไม่มีรหัสลับ → ${(await cron("")).status}`);
+console.log(`เรียก cron รหัสผิด → ${(await cron("wrong-secret-wrong-secret")).status}`);
+
+// d1: ในกรอบ — ลูกค้าเงียบมา 5 ชม.
+dConvo.last_user_message_at = ago(5);
+dConvo.last_bot_message_at = ago(4.99);
+let t0 = Date.now();
+let r = await cron();
+console.log(`d1 ลูกค้าเงียบ 5 ชม. (ในกรอบ 24 ชม.) → cron ${r.status} ส่ง ${r.body.sent?.length ?? 0} ห้อง`);
+printOut(outbox.filter((o) => o.psid === psidOf.d && o.at >= t0));
+t0 = Date.now();
+r = await cron();
+console.log(`d1 เรียก cron ซ้ำทันที → ส่ง ${r.body.sent?.length ?? 0} ห้อง · ข้อความใหม่ถึงลูกค้า ${outbox.filter((o) => o.psid === psidOf.d && o.at >= t0).length} ชิ้น (ต้องเป็น 0 — ส่งครั้งเดียว)`);
+
+// d2: ลูกค้าคนเดิม เลยกรอบ — ล้างธงว่าเคยส่ง แล้วถอยเวลาไป 25 ชม.
+dConvo.followup_sent_at = null;
+dConvo.last_user_message_at = ago(25);
+dConvo.last_bot_message_at = ago(24.99);
+t0 = Date.now();
+r = await cron();
+const skippedWhy = r.body.skipped?.find((x) => x.conversationId === dConvo.id)?.why ?? "(ไม่อยู่ในรายการที่ cron ดึงมาเลย เพราะเกิน 24 ชม.)";
+console.log(`d2 ลูกค้าคนเดิมเงียบ 25 ชม. (เลยกรอบ) → ส่ง ${r.body.sent?.length ?? 0} ห้อง · ข้อความถึงลูกค้า ${outbox.filter((o) => o.psid === psidOf.d && o.at >= t0).length} ชิ้น · เหตุผล: ${skippedWhy}`);
+
+// d3: คนรับสายแล้ว (ห้อง c ถูกส่งต่อไปแล้ว) แม้อยู่ในกรอบ → ไม่ส่ง
+const cConvo = convoOf(psidOf.c);
+cConvo.last_user_message_at = ago(5);
+cConvo.last_bot_message_at = ago(4.99);
+t0 = Date.now();
+r = await cron();
+console.log(`d3 ห้องที่ส่งต่อคนแล้ว (สถานะ ${cConvo.state}) เงียบ 5 ชม. → ข้อความถึงลูกค้า ${outbox.filter((o) => o.psid === psidOf.c && o.at >= t0).length} ชิ้น`);
+
+console.log("\n━━━━━━━━ ร่างตามรอบ 2 ที่บันทึกในห้อง (บอตไม่ส่ง) ━━━━━━━━");
+for (const k of ["a", "b", "c", "d"]) {
+  const cv = convoOf(psidOf[k]);
+  console.log(`${k}: ${cv?.followup_draft ?? "(ยังไม่มี)"} · ห้อง ${cv?.id}`);
+}
+const draftSent = outbox.some((o) => o.text && /ผมจะไม่ทักซ้ำ/.test(o.text));
+console.log(`ร่างรอบ 2 ถูกส่งหาลูกค้า: ${draftSent ? "❌ ส่งแล้ว" : "✅ ไม่เคยส่ง"}`);
 
 const sources = db.messages.filter((m) => m.direction === "out").reduce((acc, m) => ((acc[m.answer_source] = (acc[m.answer_source] ?? 0) + 1), acc), {});
 console.log("\n━━━━━━━━ ที่มาของข้อความขาออก ━━━━━━━━");

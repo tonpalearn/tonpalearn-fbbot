@@ -111,15 +111,7 @@ export async function answerFromKnowledge(params: {
 // และค่าที่สกัดได้ต้องผ่าน sanitizeExtracted() อีกชั้นก่อนบันทึก
 // ─────────────────────────────────────────────────────────────────────────
 
-export const QUAL_FIELDS = [
-  "business_type",
-  "team_size",
-  "pain",
-  "decision_maker",
-  "timeline",
-  "use_case",
-  "name",
-] as const;
+export const QUAL_FIELDS = ["task", "pain", "business_type", "use_case"] as const;
 
 export interface QualExtraction {
   fields: Partial<Record<(typeof QUAL_FIELDS)[number], string>>;
@@ -133,9 +125,8 @@ export interface QualExtraction {
 const QUAL_SYSTEM = [
   "คุณเป็นตัวสกัดข้อมูล ไม่ใช่ผู้ตอบแชท ห้ามเขียนข้อความถึงลูกค้า",
   "อ่านคำตอบของลูกค้า แล้วใส่ค่าลงช่องเฉพาะที่ลูกค้าพูดถึงจริงในข้อความนี้เท่านั้น",
-  "ช่อง: business_type=ธุรกิจทำอะไร · team_size=ขนาดทีม/จำนวนคน · pain=งานที่กินเวลาหรืออยากให้ AI ช่วย ·",
-  "decision_maker=ตัดสินใจเองหรือต้องคุยกับคนอื่น (ตอบสั้น ๆ ว่า 'ตัดสินใจเองได้' หรือ 'ต้องคุยกับคนอื่นด้วย') ·",
-  "timeline=อยากเห็นผลเมื่อไร · use_case=อยากใช้ AI กับงานแบบไหน · name=ชื่อที่ลูกค้าบอกให้เรียก",
+  "ช่อง: task=งานที่อยากให้ AI ช่วย · pain=ตรงไหนกินเวลาทีม/งานที่เจ็บ · business_type=ธุรกิจทำอะไร ·",
+  "use_case=อยากใช้ AI กับงานแบบไหน (กรณีอยากเรียนเอง)",
   "กติกา:",
   "1. ห้ามเดา ห้ามเติม ถ้าข้อความไม่ได้พูดถึงช่องไหน ให้ปล่อยว่าง",
   "2. ห้ามใส่ตัวเลข ราคา วันที่ ที่ลูกค้าไม่ได้พิมพ์เอง",

@@ -17,6 +17,7 @@ export const EDITABLE_KEYS = [
   "consent_notice",
   "office_hours",
   "bot_persona",
+  "meeting_slots",
 ] as const;
 
 const LABELS: Record<string, string> = {
@@ -26,6 +27,8 @@ const LABELS: Record<string, string> = {
   consent_notice: "ข้อความขออนุญาตเก็บข้อมูล",
   office_hours: "เวลาทำการ",
   bot_persona: "บุคลิกของบอต (ใช้สั่งโมเดล)",
+  meeting_slots:
+    "ช่องเวลาว่างนัดคุย 30 นาที (บรรทัดละ 1 ช่อง เช่น อังคาร 24 พ.ย. 10:00 · ต้องมี 2 ช่องขึ้นไปที่ยังไม่ผ่าน · ชื่อวันต้องตรงกับวันที่ · ว่าง = ทุกคำขอนัดส่งต่อต้น)",
 };
 
 export async function GET() {
