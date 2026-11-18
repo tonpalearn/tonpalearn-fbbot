@@ -145,6 +145,10 @@ export function SourceTag({ source }: { source: string | null }) {
             ? "แอดมินพิมพ์เอง"
             : source.startsWith("lead:")
               ? "ขั้นตอนเก็บข้อมูล"
-              : source;
+              : source.startsWith("qualifier:")
+                ? "คัดลูกค้าจากแอด"
+                : source === "lead_summary"
+                  ? "สรุปผู้สนใจ (ลูกค้าไม่เห็น)"
+                  : source;
   return <span className="soft text-[0.8rem]">{label}</span>;
 }

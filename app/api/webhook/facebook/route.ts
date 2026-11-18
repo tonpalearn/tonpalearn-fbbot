@@ -148,6 +148,17 @@ async function deliver(pageId: string, psid: string, action: BotAction): Promise
       content: action.text,
       answerSource: "handoff",
     });
+    if (action.summary) {
+      // สรุปจากโฟลว์คัดลูกค้า — ให้แอดมินเห็นในหน้าแชททันที (ไม่ส่งหาลูกค้า)
+      await store.saveMessage({
+        conversationId: convo.id,
+        pageId,
+        direction: "out",
+        sender: "system",
+        content: action.summary,
+        answerSource: "lead_summary",
+      });
+    }
 
     await sendText(psid, action.text);
 

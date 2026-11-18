@@ -8,7 +8,7 @@ import { env } from "./env";
 /** แอปไอดีของ Page Inbox — ใช้ตอนโอนสายให้คนจริงตอบใน Meta Business Suite */
 export const PAGE_INBOX_APP_ID = "263902037430900";
 
-const graphBase = () => `https://graph.facebook.com/${env.fb.graphVersion()}`;
+const graphBase = () => `${env.fb.graphBaseUrl()}/${env.fb.graphVersion()}`;
 
 /**
  * ตรวจลายเซ็นของ webhook

@@ -4,7 +4,8 @@
  *   ชั้น 0  กันข้อความซ้ำ (ทำที่ route ก่อนเรียกไฟล์นี้)
  *   ชั้น 1  บอตถูกปิด / คนกำลังคุยอยู่ → เงียบ
  *   ชั้น 2  คำสั่งพิเศษ: ขอคุยกับคน / ขอเมนู / หยุดบอต
- *   ชั้น 3  กำลังเก็บข้อมูลผู้สนใจอยู่ → เดินขั้นตอนต่อ
+ *   ชั้น 3  กำลังเก็บข้อมูลผู้สนใจอยู่ → เดินขั้นตอนต่อ (โฟลว์คัดลูกค้าจากแอด หรือโฟลว์ชื่อ-เบอร์เดิม)
+ *   ชั้น 3b ลูกค้ากดปุ่มยอดขายจากแอด → เริ่มโฟลว์คัดลูกค้า (lib/qualifier.ts)
  *   ชั้น 4  กติกาคำสำคัญที่แอดมินตั้งเอง
  *   ชั้น 5  คำถามที่ถามบ่อย (FAQ) ที่คล้ายพอ
  *   ชั้น 6  ค้นฐานความรู้ + ให้ Claude เรียบเรียง (แพงสุด มีเพดานต่อวัน)
@@ -23,6 +24,8 @@ import {
 } from "./matching";
 import * as store from "./store";
 import type { Conversation } from "./store";
+import { detectAdEntry, isQualDraft } from "./qualifier";
+import { continueQualifier, finishQualifier, startQualifier } from "./qualifier-flow";
 
 export type BotAction =
   | { kind: "text"; text: string; source: string; confidence?: number }
@@ -32,7 +35,8 @@ export type BotAction =
       replies: { title: string; payload: string }[];
       source: string;
     }
-  | { kind: "handoff"; text: string; reason: string }
+  /** summary = สรุปให้แอดมิน (บันทึกเป็นข้อความจากระบบในแชท ลูกค้าไม่เห็น) */
+  | { kind: "handoff"; text: string; reason: string; summary?: string }
   | { kind: "silent"; reason: string };
 
 const MENU_REPLIES = [
@@ -101,11 +105,23 @@ export async function handleIncoming(msg: IncomingMessage): Promise<BotAction> {
 
   // ── ชั้น 2: คำสั่งพิเศษ ──────────────────────────────────────────────
   const special = detectSpecialCommand(text);
+  const inQualifier = convo.state === "collecting_lead" && isQualDraft(convo.lead_draft);
   if (special === "handoff" || special === "stop_bot") {
+    if (inQualifier) {
+      // ขอคุยกับคนกลางทาง → เก็บเท่าที่ได้ + สรุปให้คน ไม่ทิ้งข้อมูลที่ถามมาแล้ว
+      const notice = await store.getSetting("handoff_notice", "กำลังเรียกทีมงานมาคุยต่อให้ครับ สักครู่นะครับ");
+      return finishQualifier(
+        convo,
+        contactId,
+        convo.lead_draft as unknown as Parameters<typeof finishQualifier>[2],
+        "ลูกค้าขอคุยกับคน",
+        notice,
+      );
+    }
     return startHandoff(convo.id, "ลูกค้าขอคุยกับคน");
   }
   if (special === "menu") {
-    await store.updateConversation(convo.id, { state: "bot_active", lead_step: null });
+    await store.updateConversation(convo.id, { state: "bot_active", lead_step: null, lead_draft: {} });
     return {
       kind: "quick_replies",
       text: await store.getSetting("greeting", "อยากให้ช่วยเรื่องไหนดีครับ"),
@@ -115,8 +131,17 @@ export async function handleIncoming(msg: IncomingMessage): Promise<BotAction> {
   }
 
   // ── ชั้น 3: กำลังเก็บข้อมูลผู้สนใจ ────────────────────────────────────
+  if (inQualifier) {
+    return continueQualifier(convo, contactId, text);
+  }
   if (convo.state === "collecting_lead") {
     return continueLeadCollection(convo, contactId, text);
+  }
+
+  // ── ชั้น 3b: ปุ่มยอดขายจากแอด / ขอรายละเอียดงาน → คัดลูกค้าแทนการโยนหาคนทันที ──
+  const adEntry = detectAdEntry(text);
+  if (adEntry) {
+    return startQualifier(convo, adEntry);
   }
 
   // ── ชั้น 4: กติกาคำสำคัญ ─────────────────────────────────────────────

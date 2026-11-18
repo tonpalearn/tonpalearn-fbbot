@@ -11,3 +11,6 @@ npm-debug.log*
 next-env.d.ts
 coverage
 *.tsbuildinfo
+
+.env.export
+exports/

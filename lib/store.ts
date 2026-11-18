@@ -160,6 +160,8 @@ export async function getHistory(
     .from("messages")
     .select("direction,content")
     .eq("conversation_id", conversationId)
+    // ข้อความจากระบบ (เช่น สรุปผู้สนใจที่มีเบอร์ลูกค้า) เป็นของแอดมิน ห้ามหลุดเข้าโมเดล
+    .neq("sender", "system")
     .not("content", "is", null)
     .order("created_at", { ascending: false })
     .limit(turns);
@@ -271,8 +273,14 @@ export async function saveLead(params: {
   interest?: string | null;
   leadType: "individual" | "corporate";
   consentAt?: string | null;
+  note?: string | null;
+  /** ช่องด้านล่างมีเฉพาะหลังรัน migration 0003 — ส่งเฉพาะโฟลว์คัดลูกค้าจากแอด */
+  source?: string;
+  segment?: string;
+  lineId?: string | null;
+  qualification?: Record<string, unknown>;
 }): Promise<void> {
-  const { error } = await db().from("leads").insert({
+  const row: Record<string, unknown> = {
     page_id: params.pageId,
     conversation_id: params.conversationId,
     contact_id: params.contactId,
@@ -282,7 +290,13 @@ export async function saveLead(params: {
     interest: params.interest ?? null,
     lead_type: params.leadType,
     consent_at: params.consentAt ?? null,
-  });
+  };
+  if (params.note !== undefined) row.note = params.note;
+  if (params.source !== undefined) row.source = params.source;
+  if (params.segment !== undefined) row.segment = params.segment;
+  if (params.lineId !== undefined) row.line_id = params.lineId;
+  if (params.qualification !== undefined) row.qualification = params.qualification;
+  const { error } = await db().from("leads").insert(row);
   if (error) throw error;
 }
 

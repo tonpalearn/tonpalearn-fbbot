@@ -17,17 +17,28 @@ export async function GET(req: Request) {
   const status = asTrimmed(url.searchParams.get("status"));
   const limit = Math.min(Math.max(asInt(url.searchParams.get("limit"), 200), 1), 1000);
 
-  try {
+  // source/segment/line_id/qualification มาจาก migration 0003
+  // ถ้ายังไม่ได้รัน 0003 ให้ถอยไปอ่านคอลัมน์ชุดเดิม หน้าผู้สนใจจะได้ไม่พังทั้งหน้า
+  const FULL =
+    "id,name,phone,email,line_id,interest,lead_type,status,note,created_at,conversation_id,source,segment,qualification";
+  const LEGACY = "id,name,phone,email,interest,lead_type,status,note,created_at,conversation_id";
+
+  const run = (cols: string) => {
     let q = db()
       .from("leads")
-      .select("id,name,phone,email,interest,lead_type,status,note,created_at,conversation_id")
+      .select(cols)
       .eq("page_id", pageId())
       .order("created_at", { ascending: false })
       .limit(limit);
-
     if (status !== "" && STATUSES.includes(status)) q = q.eq("status", status);
+    return q;
+  };
 
-    const { data, error } = await q;
+  try {
+    let { data, error } = await run(FULL);
+    if (error && /column|42703|PGRST204/i.test(`${error.code} ${error.message}`)) {
+      ({ data, error } = await run(LEGACY));
+    }
     if (error) throw error;
     return ok({ items: data ?? [] });
   } catch (err) {

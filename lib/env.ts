@@ -33,6 +33,8 @@ export const env = {
     pageId: () => required("FB_PAGE_ID"),
     pageAccessToken: () => required("FB_PAGE_ACCESS_TOKEN"),
     graphVersion: () => optional("GRAPH_API_VERSION", "v21.0"),
+    /** ใช้ทดสอบในเครื่องเท่านั้น (ชี้ไปตัวปลอมใน scripts/smoke-local.mjs) — บน prod ห้ามตั้ง */
+    graphBaseUrl: () => optional("FB_GRAPH_BASE_URL", "https://graph.facebook.com"),
   },
   supabase: {
     url: () => required("NEXT_PUBLIC_SUPABASE_URL"),
@@ -50,6 +52,14 @@ export const env = {
     historyTurns: () => num("HISTORY_TURNS", 8),
     dailyAiCallCap: () => num("DAILY_AI_CALL_CAP", 500),
   },
+  /** แจ้งต้นเมื่อได้ผู้สนใจใหม่ (FR-15) — ไม่ตั้งค่า = ข้ามเงียบ ๆ ยังเห็นในหน้าแอดมิน */
+  notify: {
+    lineToken: () => optional("LINE_CHANNEL_ACCESS_TOKEN", ""),
+    lineTo: () => optional("LINE_NOTIFY_TO", ""),
+    /** ใช้ทดสอบในเครื่องเท่านั้น — บน prod ห้ามตั้ง */
+    lineBaseUrl: () => optional("LINE_API_BASE_URL", "https://api.line.me"),
+  },
+  appUrl: () => optional("NEXT_PUBLIC_APP_URL", "").replace(/\/+$/, ""),
   admin: {
     /**
      * รหัสผ่านหน้าแอดมินคือด่านเดียวจริง ๆ ที่กันคนนอก

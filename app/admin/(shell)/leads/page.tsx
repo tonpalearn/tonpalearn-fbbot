@@ -8,7 +8,17 @@ interface Lead {
   name: string | null;
   phone: string | null;
   email: string | null;
+  line_id: string | null;
   interest: string | null;
+  note: string | null;
+  conversation_id: string | null;
+  source: string | null;
+  segment: string | null;
+  qualification: {
+    button?: string;
+    fields?: Record<string, string>;
+    reason?: string;
+  } | null;
   lead_type: "individual" | "corporate";
   status: "new" | "contacted" | "won" | "lost";
   created_at: string;
@@ -20,6 +30,25 @@ const STATUS_LABEL: Record<Lead["status"], string> = {
   won: "ปิดได้",
   lost: "ไม่ไปต่อ",
 };
+
+const SEGMENT_LABEL: Record<string, string> = {
+  big: "แอด · 10 ล้านขึ้นไป",
+  small: "แอด · ต่ำกว่า 10 ล้าน",
+  self_learn: "แอด · อยากเรียนเอง",
+  details: "แอด · ขอตัวอย่างงาน",
+};
+
+const FIELD_LABEL: Record<string, string> = {
+  business_type: "ธุรกิจ",
+  team_size: "ขนาดทีม",
+  pain: "อยากให้ AI ช่วย",
+  decision_maker: "ตัดสินใจ",
+  timeline: "อยากเห็นผล",
+  use_case: "อยากใช้ AI กับงาน",
+};
+
+const contactOf = (l: Lead) =>
+  [l.phone, l.email, l.line_id && `LINE ${l.line_id}`].filter(Boolean).join(" · ");
 
 const FILTERS: { value: string; label: string }[] = [
   { value: "", label: "ทั้งหมด" },
@@ -50,11 +79,13 @@ export default function LeadsPage() {
 
   function downloadCsv() {
     const rows = data?.items ?? [];
-    const header = ["ชื่อ", "เบอร์", "อีเมล", "ความสนใจ", "ประเภท", "สถานะ", "วันที่"];
+    const header = ["ชื่อ", "เบอร์", "อีเมล", "LINE", "ปุ่มที่กด", "ความสนใจ", "ประเภท", "สถานะ", "วันที่"];
     const body = rows.map((r) => [
       r.name ?? "",
       r.phone ?? "",
       r.email ?? "",
+      r.line_id ?? "",
+      r.qualification?.button ?? "",
       r.interest ?? "",
       r.lead_type === "corporate" ? "องค์กร" : "รายบุคคล",
       STATUS_LABEL[r.status],
@@ -122,16 +153,49 @@ export default function LeadsPage() {
               <span className="soft ml-auto text-[0.85rem]">{thaiTime(l.created_at)}</span>
             </div>
 
+            {l.segment && (
+              <p className="text-[0.9rem]">
+                <span
+                  className="rounded-full px-2 py-0.5"
+                  style={{ background: "var(--accent-weak)" }}
+                >
+                  {SEGMENT_LABEL[l.segment] ?? l.segment}
+                </span>
+                {l.qualification?.button && (
+                  <span className="soft"> · กดปุ่ม “{l.qualification.button}”</span>
+                )}
+              </p>
+            )}
+
             <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
               <p>
                 <span className="soft">ติดต่อ: </span>
-                {l.phone || l.email || "—"}
+                {contactOf(l) || "—"}
               </p>
               <p>
                 <span className="soft">สนใจ: </span>
                 {l.interest || "—"}
               </p>
+              {Object.entries(l.qualification?.fields ?? {})
+                .filter(([k]) => k in FIELD_LABEL && k !== "pain" && k !== "use_case")
+                .map(([k, v]) => (
+                  <p key={k}>
+                    <span className="soft">{FIELD_LABEL[k]}: </span>
+                    {v}
+                  </p>
+                ))}
+              {l.qualification?.reason && (
+                <p>
+                  <span className="soft">ส่งต่อเพราะ: </span>
+                  {l.qualification.reason}
+                </p>
+              )}
             </div>
+            {l.conversation_id && (
+              <a className="text-[0.95rem] underline" href={`/admin/inbox/${l.conversation_id}`}>
+                เปิดแชทนี้
+              </a>
+            )}
 
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <span className="soft text-[0.9rem]">สถานะ:</span>
