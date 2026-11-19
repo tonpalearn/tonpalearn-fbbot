@@ -15,3 +15,4 @@ coverage
 .env.export
 exports/
 .env.cron
+.env.line
