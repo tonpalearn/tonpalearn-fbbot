@@ -23,6 +23,8 @@ import {
   matchRule,
 } from "./matching";
 import * as store from "./store";
+import { getUserProfile } from "./facebook";
+import { newChatAlert, notifyOwner } from "./notify";
 import type { Conversation } from "./store";
 import { VOICE, detectAdEntry, isBotQuestion, isLikelyName, isQualDraft, looksLikeQuestion, type OutPart } from "./qualifier";
 import { continueQualifier, finishQualifier, startOpenQualifier, startQualifier } from "./qualifier-flow";
@@ -94,6 +96,23 @@ export async function handleIncoming(msg: IncomingMessage): Promise<BotAction> {
     last_user_message_at: new Date().toISOString(),
     unread_for_admin: true,
   });
+
+  // ชื่อ + รูปโปรไฟล์ไว้โชว์ในหน้าแอดมิน · ล้มได้ ห้ามทำให้การตอบล้ม
+  let profile: { name: string | null; pic: string | null } = { name: null, pic: null };
+  try {
+    profile = await store.ensureProfile(contactId, () => getUserProfile(msg.psid));
+  } catch (err) {
+    console.error(`[brain] ดึงโปรไฟล์ไม่สำเร็จ: ${(err as Error).message}`);
+  }
+  const history = await store.getHistory(convo.id, 2);
+  const firstContact = history.length <= 1;
+  if (firstContact) {
+    try {
+      await notifyOwner(newChatAlert(profile.name, msg.text ?? "", convo.id));
+    } catch {
+      // แจ้งเตือนล้ม ห้ามทำให้การตอบลูกค้าล้ม
+    }
+  }
 
   // ── ชั้น 1: คนกำลังคุยอยู่ บอตต้องเงียบสนิท ──────────────────────────
   if (convo.state === "human_active" || convo.state === "awaiting_human") {
@@ -185,9 +204,8 @@ export async function handleIncoming(msg: IncomingMessage): Promise<BotAction> {
 
   // ── ชั้น 4b: คนใหม่ทักเข้ามาเอง (ไม่ได้กดปุ่มแอด) → เข้าโฟลว์คัดลูกค้า (กติกาของต้นมาก่อน · มาก่อน FAQ) ──
   // บทเรียนแชทสด 18 พ.ย. 69: เดิมข้อความพิมพ์เองตกไปโอนหาคนทุกห้อง ลูกค้ารอแล้วเงียบ
-  if (convo.state === "bot_active" && text.trim() !== "") {
-    const history = await store.getHistory(convo.id, 2);
-    if (history.length <= 1) return startOpenQualifier(convo, { contactId, psid: msg.psid }, text);
+  if (convo.state === "bot_active" && text.trim() !== "" && firstContact) {
+    return startOpenQualifier(convo, { contactId, psid: msg.psid }, text);
   }
 
   // ── ชั้น 5: คำถามที่ถามบ่อย ──────────────────────────────────────────

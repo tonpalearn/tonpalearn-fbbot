@@ -9,6 +9,7 @@
  */
 import { after } from "next/server";
 import { env } from "@/lib/env";
+import { handoffAlert, notifyOwner } from "@/lib/notify";
 import { verifySignature, sendText, sendQuickReplies, sendSenderAction, passThreadControl } from "@/lib/facebook";
 import { handleAttachment, handleIncoming, type BotAction } from "@/lib/brain";
 import type { OutPart } from "@/lib/qualifier";
@@ -126,6 +127,14 @@ async function processEvent(pageId: string, event: MessagingEvent): Promise<void
   }
 }
 
+/** เว้นจังหวะก่อนข้อความถัดไป 0.9–2.4 วินาที (ไม่ใช้ตอนรันเทสต์) */
+async function typingPause(psid: string, text: string): Promise<void> {
+  if (process.env.VITEST) return;
+  await sendSenderAction(psid, "typing_on").catch(() => {});
+  const ms = Math.min(2400, 900 + text.length * 12);
+  await new Promise((r) => setTimeout(r, ms));
+}
+
 /** ส่งข้อความหนึ่งชิ้น (มีปุ่มหรือไม่มี) แล้วบันทึก */
 async function sendPart(
   pageId: string,
@@ -154,7 +163,11 @@ async function deliver(pageId: string, psid: string, action: BotAction): Promise
   if (action.kind === "silent") return;
 
   if (action.kind === "multi") {
-    for (const part of action.parts) await sendPart(pageId, psid, convo.id, part, action.source);
+    for (const [i, part] of action.parts.entries()) {
+      // ข้อความที่ 2 เป็นต้นไป: ขึ้น "กำลังพิมพ์" แล้วเว้นจังหวะตามความยาว ไม่ยิงติดกันเหมือนบอต
+      if (i > 0) await typingPause(psid, part.text);
+      await sendPart(pageId, psid, convo.id, part, action.source);
+    }
     await store.updateConversation(convo.id, { last_bot_message_at: new Date().toISOString() });
     return;
   }
@@ -166,7 +179,8 @@ async function deliver(pageId: string, psid: string, action: BotAction): Promise
     await store.updateConversation(convo.id, { state: "awaiting_human", unread_for_admin: true });
     await store.logHandoff(convo.id, "pass", action.reason, "bot");
     // ข้อความที่ต้องส่งก่อนข้อความโอนสาย (เช่น เคส + ลิงก์ portfolio)
-    for (const part of action.pre ?? []) {
+    for (const [i, part] of (action.pre ?? []).entries()) {
+      if (i > 0) await typingPause(psid, part.text);
       await sendPart(pageId, psid, convo.id, part, "handoff_pre").catch((err) =>
         console.error(`[webhook] ส่งข้อความก่อนโอนสายไม่สำเร็จ: ${(err as Error).message}`),
       );
@@ -191,7 +205,18 @@ async function deliver(pageId: string, psid: string, action: BotAction): Promise
       });
     }
 
+    if ((action.pre ?? []).length > 0) await typingPause(psid, action.text);
     await sendText(psid, action.text);
+
+    // เตือนต้นทาง LINE (โฟลว์คัดลูกค้าส่งสรุปเต็มไปแล้วใน finishQualifier — ไม่ส่งซ้ำ)
+    if (!action.summary) {
+      try {
+        const name = await store.getContactName(contactId);
+        await notifyOwner(handoffAlert(name, action.reason, convo.id));
+      } catch (err) {
+        console.error(`[webhook] แจ้งเตือน LINE ไม่สำเร็จ: ${(err as Error).message}`);
+      }
+    }
 
     try {
       await passThreadControl(psid, action.reason);

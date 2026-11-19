@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { IconSearch } from "@/components/icons";
 import {
+  Avatar,
   DeadlineBadge,
   draftDeadline,
   Empty,
@@ -19,6 +20,7 @@ import {
 interface Conversation {
   id: string;
   name: string;
+  avatar: string | null;
   state: string;
   unread: boolean;
   lastMessage: string;
@@ -123,8 +125,15 @@ export default function InboxPage() {
                   className="row-link flex gap-3 px-4 py-3.5"
                   style={c.unread ? { background: "var(--gold-soft)" } : undefined}
                 >
-                  <span className="mt-2.5 w-2.5 flex-none" aria-hidden="true">
-                    {c.unread && <span className="dot" style={{ color: "var(--g2)", width: 10, height: 10 }} />}
+                  <span className="relative flex-none">
+                    <Avatar name={c.name} src={c.avatar} size={44} />
+                    {c.unread && (
+                      <span
+                        className="dot absolute -top-0.5 -right-0.5"
+                        aria-hidden="true"
+                        style={{ color: "var(--g2)", width: 12, height: 12, boxShadow: "0 0 0 2px var(--card)" }}
+                      />
+                    )}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">

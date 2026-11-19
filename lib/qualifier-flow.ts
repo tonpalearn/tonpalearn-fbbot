@@ -39,7 +39,10 @@ import {
   openingParts,
   pickCase,
   priceText,
-  reflectTask,
+  painQuestion,
+  shareCase,
+  wantsToLearn,
+  businessFromText,
   isGreetingOnly,
   detectAdEntry,
   roundTwoDraft,
@@ -169,15 +172,15 @@ async function advance(convo: Conversation, ctx: QualCtx, d: Draft, lead: OutPar
   if (!answerCaseFirst && !has("pain")) {
     // ลูกค้าพิมพ์งานมาละเอียดแล้ว → ใช้ด่าน 2 ข้อ 1 ของต้นแทน
     const detailed = (d.fields.task ?? "").length >= 25;
-    const q = detailed ? VOICE.painDetailed : VOICE.pain;
-    // สะท้อนคำของลูกค้ากลับก่อนถาม (บทเรียนแชทสด: ลูกค้าบอกเรื่องเฉพาะ อย่าตอบกว้าง)
-    return ask("pain", { text: d.fields.task ? reflectTask(d.fields.task, q) : q }, "qualifier:ask:pain");
+    // ถามเจาะตามงานที่เลือก (บทเรียนแชทสด: ลูกค้าบอกเรื่องเฉพาะ อย่าตอบกว้าง · ต้นติ: อย่ายกคำลูกค้าใส่ "…")
+    return ask("pain", { text: painQuestion(d.fields.task, detailed) }, "qualifier:ask:pain");
   }
   if (!answerCaseFirst && !has("business_type")) return ask("business_type", { text: VOICE.businessType }, "qualifier:ask:business_type");
 
   const slots = await getSlots();
   if (!d.caseShown && d.fields.business_type) {
-    const c = pickCase(d.fields.business_type);
+    // ลูกค้าถามหาตัวอย่างเอง → "มีครับ …" · บอตเล่าเอง → "งานคล้ายกันที่ผมทำ …"
+    const c = d.wantCase ? pickCase(d.fields.business_type) : shareCase(d.fields.business_type);
     d.caseShown = true;
     d.caseKey = c.key;
     if (d.wantCase) {
@@ -471,6 +474,20 @@ export async function continueQualifier(convo: Conversation, ctx: QualCtx, text:
   }
   d.offTopic = 0;
   d.pending = null;
+
+  // พิมพ์เองว่า "อยากเรียน…" ตอนถามงาน → ไปทางคอร์ส ไม่ถามเรื่อง Excel/ระบบต่อ (เจอในแชททดลอง 19 พ.ย.)
+  if (d.segment !== "self_learn" && newly.includes("task") && wantsToLearn(d.fields.task ?? "")) {
+    d.segment = "self_learn";
+    d.fields.use_case = d.fields.task;
+    const rec = selfLearnRecommendation(d.fields.use_case ?? text);
+    d.recommended = rec.ids;
+    return advance(convo, ctx, d, rec.parts);
+  }
+  // ลูกค้าเล่าธุรกิจมาในคำตอบแล้ว → ไม่ถาม "ธุรกิจทำเกี่ยวกับอะไร" ซ้ำ
+  if (!d.fields.business_type && (newly.includes("pain") || newly.includes("task"))) {
+    const biz = businessFromText(text); // เฉพาะคำที่ลูกค้าพิมพ์รอบนี้ (ไม่ใช่ชื่อปุ่ม)
+    if (biz) d.fields.business_type = biz;
+  }
 
   if (d.segment === "self_learn" && newly.includes("use_case")) {
     const rec = selfLearnRecommendation(d.fields.use_case ?? text);

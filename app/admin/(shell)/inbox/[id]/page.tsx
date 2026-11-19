@@ -7,6 +7,7 @@ import type { DeadlineLevel } from "@/lib/today";
 import { IconAlert, IconBack, IconCheck, IconSend } from "@/components/icons";
 import {
   api,
+  Avatar,
   CopyButton,
   DeadlineBadge,
   draftDeadline,
@@ -42,6 +43,7 @@ interface Detail {
   id: string;
   state: string;
   name: string;
+  avatar: string | null;
   lastUserMessageAt: string | null;
   messages: MessageRow[];
   followup?: { draft: string | null; draftAt: string | null; sentAt: string | null; variant: string | null };
@@ -107,6 +109,7 @@ export default function ConversationPage({ params }: { params: Promise<{ id: str
         <Link href="/admin/inbox" className="btn-ghost px-2" aria-label="กลับไปกล่องข้อความ">
           <IconBack />
         </Link>
+        <Avatar name={data.name} src={data.avatar} size={48} />
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-[1.4rem] font-semibold">{data.name}</h1>
           <p className="soft text-[0.9rem]">ลูกค้าพิมพ์ล่าสุด {relTime(data.lastUserMessageAt)}</p>

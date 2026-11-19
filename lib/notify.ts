@@ -32,3 +32,32 @@ export async function notifyOwner(text: string): Promise<NotifyResult> {
     return "failed";
   }
 }
+
+const clip = (t: string, n: number) => t.replace(/\s+/g, " ").trim().slice(0, n);
+const chatLink = (conversationId: string) => {
+  const base = env.appUrl();
+  return base ? `${base}/admin/inbox/${conversationId}` : null;
+};
+
+/** มีคนใหม่ทักเพจ — เตือนให้ต้นเข้าไปดู (1 ครั้งต่อคน) */
+export function newChatAlert(name: string | null, firstText: string, conversationId: string): string {
+  return [
+    `🔔 มีคนทักเพจใหม่: ${name ?? "ยังไม่ทราบชื่อ"}`,
+    `ข้อความแรก: ${clip(firstText, 120) || "(กดปุ่ม/ส่งไฟล์)"}`,
+    "บอตกำลังคุยต่อให้",
+    chatLink(conversationId) && `ดูแชท: ${chatLink(conversationId)}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+/** บอตส่งต่อให้คน — ต้นต้องเข้าไปตอบ */
+export function handoffAlert(name: string | null, reason: string, conversationId: string): string {
+  return [
+    `🙋 ${name ?? "ลูกค้า"} รอต้นตอบในแชท`,
+    `เพราะ: ${clip(reason, 120)}`,
+    chatLink(conversationId) && `ตอบที่: ${chatLink(conversationId)}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}

@@ -69,7 +69,7 @@ vi.mock("@/lib/facebook", () => ({ getUserProfile: (p: string) => profileMock(p)
 
 const { handleIncoming, handleAttachment } = await import("@/lib/brain");
 const Q = await import("@/lib/qualifier");
-const { SCRIPT, VOICE, CASES, FREE_CALL_LINE, allowedMoneyFigures } = Q;
+const { CASE_SHARE, painQuestion, SCRIPT, VOICE, CASES, FREE_CALL_LINE, allowedMoneyFigures } = Q;
 const { extractRiskyFacts } = await import("@/lib/guard");
 
 type Action = Awaited<ReturnType<typeof handleIncoming>>;
@@ -139,9 +139,11 @@ describe("กลุ่ม 10M+ ถาม 4 ข้อ → ส่งต่อต�
       "โรงงานผลิตอาหารแช่แข็ง",
       "081-234-5678",
     );
-    expect(texts(out[1])).toEqual([`ได้ครับ เรื่อง "งานในโรงงาน"\n${VOICE.pain}`]);
+    expect(texts(out[1])).toEqual([painQuestion("งานในโรงงาน", false)]);
+    expect(texts(out[1])[0]).toContain("รายงานผลิต"); // ถามเจาะตามงาน ไม่ยกคำลูกค้าใส่ "…"
     expect(texts(out[2])).toEqual([VOICE.businessType]);
-    expect(texts(out[3])[0]).toContain("ที่ใกล้สุดที่ผมมีตอนนี้คือโรงสี คนละอุตสาหกรรมกัน");
+    expect(texts(out[3])[0]).toContain("ที่ใกล้สุดที่ผมมีคือโรงสีครับ คนละอุตสาหกรรมกัน");
+    expect(texts(out[3])[0]).not.toMatch(/^มีครับ/); // ไม่มีใครถาม ห้ามตอบ "มีครับ"
     expect(texts(out[3])[1]).toBe(VOICE.consentConsult);
     expect(out[4]).toMatchObject({ kind: "handoff", text: VOICE.doneConsult });
     expect(texts(out[4])[0]).toBe(VOICE.consentConfirm);
@@ -163,7 +165,7 @@ describe("กลุ่ม 10M+ ถาม 4 ข้อ → ส่งต่อต�
     state.settings.meeting_slots = SLOTS;
     const out = await chat("100 ล้านขึ้นไป", "สรุปตัวเลขผู้บริหาร", "รวมยอดขายจากหลายสาขา", "กลุ่มบริษัท 3 บริษัท");
     const invite = texts(out[3]);
-    expect(invite[0]).toBe(CASES.group.text);
+    expect(invite[0]).toBe(CASE_SHARE.group);
     expect(invite).toHaveLength(2); // เคส + ชวนนัดในข้อความเดียว
     expect(invite[1]).toContain(SCRIPT.invite1);
     expect(invite[1]).toContain(FREE_CALL_LINE);
@@ -304,7 +306,7 @@ describe("รั้วกันโมเดลแต่ง", () => {
 
   it("โมเดลล้ม / ถึงเพดาน → เดินต่อด้วยกติกาตายตัว", async () => {
     extractMock.mockRejectedValueOnce(new Error("429"));
-    expect(texts((await chat("100 ล้านขึ้นไป", "งานในโรงงาน"))[1])).toEqual([`ได้ครับ เรื่อง "งานในโรงงาน"\n${VOICE.pain}`]);
+    expect(texts((await chat("100 ล้านขึ้นไป", "งานในโรงงาน"))[1])).toEqual([painQuestion("งานในโรงงาน", false)]);
     reset();
     state.aiCallsToday = 9999;
     extractMock.mockClear();
@@ -352,7 +354,7 @@ describe("ทักเข้ามาเอง ไม่ได้กดปุ่
 
   it("บอกงานมาเลย → สะท้อนคำลูกค้า + ถามข้อเดียว (ไม่ส่งเมนูบริการ ไม่บอกราคา)", async () => {
     const out = await chat("Automation โรงงาน", "ทำรายงานผลิตทุกเช้า", "โรงงานชิ้นส่วนพลาสติก", "0812345678");
-    expect(texts(out[0])).toEqual([`ได้ครับ เรื่อง "Automation โรงงาน"\n${VOICE.pain}`]);
+    expect(texts(out[0])).toEqual([`เข้าใจครับ ${VOICE.pain}`]);
     expect(all(out[0])).not.toMatch(/Training|Consult|บาท/);
     expect(texts(out[1])).toEqual([VOICE.businessType]);
     expect(out[3].kind).toBe("handoff");
@@ -377,6 +379,18 @@ describe("ทักเข้ามาเอง ไม่ได้กดปุ่
 
   it("ทักทาย แล้วเล่างานแทนการตอบยอดขาย → ถือเป็นงาน แล้วถามต่อ", async () => {
     const out = await chat("สวัสดีครับ", "อยากให้ AI ช่วยตอบแชทลูกค้า");
-    expect(texts(out[1])[0]).toContain('เรื่อง "อยากให้ AI ช่วยตอบแชทลูกค้า"');
+    expect(texts(out[1])[0]).toMatch(/^เข้าใจครับ /);
+  });
+});
+
+describe("แชททดลอง 19 พ.ย. — ต้องเป็นธรรมชาติขึ้น", () => {
+  it("พิมพ์ 'อยากเรียนเอง แบบผู้บริหาร' ตอนถามงาน → ไปทางคอร์ส ไม่ถามเรื่อง Excel", async () => {
+    const out = await chat("ต่ำกว่า 10 ล้าน", "อื่น ๆ พิมพ์เอง", "อยากเรียนเอง แบบผู้บริหาร");
+    expect(all(out[2])).not.toMatch(/Excel|ทำงานนี้กันยังไง/);
+    expect(all(out[2])).toContain(VOICE.selfIntro);
+  });
+  it("เล่าธุรกิจมาในคำตอบแล้ว → ไม่ถามธุรกิจซ้ำ", async () => {
+    const out = await chat("ต่ำกว่า 10 ล้าน", "ตอบแชท/ตามลูกค้า", "ต้องการดูการบริหารธุรกิจจัดหางาน");
+    expect(all(out[2])).not.toContain(VOICE.businessType);
   });
 });

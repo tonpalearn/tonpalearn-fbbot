@@ -72,9 +72,10 @@ export async function upsertContact(params: {
       {
         page_id: params.pageId,
         psid: params.psid,
-        first_name: params.firstName ?? null,
-        last_name: params.lastName ?? null,
-        profile_pic: params.profilePic ?? null,
+        // ไม่ส่งช่องที่ไม่รู้ค่า — upsert จะได้ไม่ล้างชื่อ/รูปที่เก็บไว้แล้วให้เป็นค่าว่าง (บั๊กเดิม: ชื่อหายทุกข้อความ)
+        ...(params.firstName !== undefined ? { first_name: params.firstName } : {}),
+        ...(params.lastName !== undefined ? { last_name: params.lastName } : {}),
+        ...(params.profilePic !== undefined ? { profile_pic: params.profilePic } : {}),
         last_seen_at: new Date().toISOString(),
       },
       { onConflict: "page_id,psid" },
@@ -127,6 +128,47 @@ export async function updateConversation(
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq("id", id);
   if (error) throw error;
+}
+
+export async function getContactName(contactId: string): Promise<string | null> {
+  const { data } = await db().from("contacts").select("first_name,last_name").eq("id", contactId).maybeSingle();
+  const r = (data ?? {}) as { first_name?: string | null; last_name?: string | null };
+  return `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || null;
+}
+
+/** ชื่อ/รูปของผู้ทัก — ดึงจาก Facebook เมื่อยังไม่มี หรือรูปเก่าเกิน 3 วัน (ลิงก์รูปของ Facebook หมดอายุ) */
+export async function ensureProfile(
+  contactId: string,
+  fetchProfile: () => Promise<{ first_name?: string; last_name?: string; profile_pic?: string }>,
+): Promise<{ name: string | null; pic: string | null }> {
+  const { data } = await db()
+    .from("contacts")
+    .select("first_name,last_name,profile_pic,profile_fetched_at")
+    .eq("id", contactId)
+    .maybeSingle();
+  const row = (data ?? {}) as {
+    first_name?: string | null;
+    last_name?: string | null;
+    profile_pic?: string | null;
+    profile_fetched_at?: string | null;
+  };
+  const nameOf = (f?: string | null, l?: string | null) => `${f ?? ""} ${l ?? ""}`.trim() || null;
+  const fetchedAt = row.profile_fetched_at ? new Date(row.profile_fetched_at).getTime() : 0;
+  const fresh = Date.now() - fetchedAt < 3 * 24 * 3600_000;
+  if (row.first_name && fresh) return { name: nameOf(row.first_name, row.last_name), pic: row.profile_pic ?? null };
+  // ลองใหม่ไม่บ่อยกว่าชั่วโมงละครั้ง ถ้าครั้งก่อนไม่ได้อะไรเลย
+  if (!row.first_name && Date.now() - fetchedAt < 3600_000) return { name: null, pic: null };
+
+  const p = await fetchProfile().catch(() => ({}) as { first_name?: string; last_name?: string; profile_pic?: string });
+  const patch: Record<string, unknown> = { profile_fetched_at: new Date().toISOString() };
+  if (p.first_name) patch.first_name = p.first_name;
+  if (p.last_name) patch.last_name = p.last_name;
+  if (p.profile_pic) patch.profile_pic = p.profile_pic;
+  await db().from("contacts").update(patch).eq("id", contactId);
+  return {
+    name: nameOf(p.first_name ?? row.first_name, p.last_name ?? row.last_name),
+    pic: p.profile_pic ?? row.profile_pic ?? null,
+  };
 }
 
 export async function saveMessage(params: {

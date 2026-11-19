@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { LeadLine } from "@/components/lead";
 import { IconChevron } from "@/components/icons";
 import {
+  Avatar,
   DeadlineBadge,
   Empty,
   ErrorBox,
@@ -272,6 +273,7 @@ function ItemCard({ item, now }: { item: TodayItem; now: number }) {
   return (
     <article className={`card p-4 ${item.kind === "waiting" ? "card-hot" : ""}`}>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+        <Avatar name={item.name} src={item.avatar} size={36} />
         <h3 className="f-head text-[1.05rem] font-semibold">{item.name}</h3>
         <span className={why.cls}>{why.label}</span>
         {item.unread && (

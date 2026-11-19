@@ -437,3 +437,43 @@ export function ContactActions({ lead }: { lead: ContactBits }) {
     </div>
   );
 }
+
+// ── รูปโปรไฟล์ผู้ทัก ──────────────────────────────────────────────────
+
+/** รูปโปรไฟล์ Messenger · ไม่มีรูป/ลิงก์หมดอายุ → วงกลมตัวอักษรแรกของชื่อ (สีคงที่ตามชื่อ) */
+export function Avatar({ name, src, size = 40 }: { name: string; src?: string | null; size?: number }) {
+  const [broken, setBroken] = useState(false);
+  const clean = name.replace(/^ผู้ใช้\s*\.{3}/, "").trim();
+  const initial = (clean.match(/[\p{L}\p{N}]/u)?.[0] ?? "?").toUpperCase();
+  const hue = [...name].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 7);
+  const box = { width: size, height: size, minWidth: size };
+  if (src && !broken) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- รูปจาก Facebook CDN ลิงก์หมดอายุได้ ไม่ผ่าน next/image
+      <img
+        src={src}
+        alt=""
+        width={size}
+        height={size}
+        referrerPolicy="no-referrer"
+        onError={() => setBroken(true)}
+        className="rounded-full object-cover"
+        style={{ ...box, boxShadow: "0 0 0 2px var(--card), 0 2px 8px -2px rgba(0,0,0,.25)" }}
+      />
+    );
+  }
+  return (
+    <span
+      aria-hidden="true"
+      className="f-head grid place-items-center rounded-full font-semibold text-white"
+      style={{
+        ...box,
+        fontSize: size * 0.42,
+        background: `linear-gradient(160deg, hsl(${hue} 55% 58%), hsl(${(hue + 30) % 360} 55% 42%))`,
+        boxShadow: "0 0 0 2px var(--card), 0 2px 8px -2px rgba(0,0,0,.25)",
+      }}
+    >
+      {initial}
+    </span>
+  );
+}

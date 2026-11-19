@@ -52,6 +52,8 @@ export interface ConversationSummary {
   lastUserMessageAt: string | null;
   updatedAt: string;
   name: string;
+  /** ลิงก์รูปโปรไฟล์ Messenger (หมดอายุได้ — หน้าเว็บต้องมีตัวอักษรแทนเมื่อโหลดไม่ขึ้น) */
+  avatar: string | null;
   lastMessage: string;
   lastMessageSender: string | null;
   lastMessageAt: string | null;
@@ -121,7 +123,7 @@ export async function listConversations(opts: {
   let q = db()
     .from("conversations")
     .select(
-      "id,state,unread_for_admin,last_user_message_at,updated_at,contact:contacts(first_name,last_name,psid)",
+      "id,state,unread_for_admin,last_user_message_at,updated_at,contact:contacts(first_name,last_name,psid,profile_pic)",
     )
     .eq("page_id", pageId())
     .order("updated_at", { ascending: false })
@@ -145,6 +147,7 @@ export async function listConversations(opts: {
       lastUserMessageAt: r.last_user_message_at,
       updatedAt: r.updated_at,
       name: displayName(pickContact(r.contact)),
+      avatar: pickContact(r.contact)?.profile_pic ?? null,
       lastMessage: lm?.content ?? "",
       lastMessageSender: lm?.sender ?? null,
       lastMessageAt: lm?.created_at ?? null,
@@ -173,6 +176,7 @@ export interface ConversationDetail {
   id: string;
   state: ConversationState;
   name: string;
+  avatar: string | null;
   psid: string;
   lastUserMessageAt: string | null;
   messages: MessageRow[];
@@ -291,6 +295,7 @@ export async function getConversation(id: string): Promise<ConversationDetail | 
     id: row.id,
     state: row.state,
     name: displayName(contact),
+    avatar: contact?.profile_pic ?? null,
     psid: contact?.psid ?? "",
     lastUserMessageAt: row.last_user_message_at,
     messages,

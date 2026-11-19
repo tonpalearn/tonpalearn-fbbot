@@ -125,9 +125,30 @@ export async function getUserProfile(
   const url = `${graphBase()}/${psid}?fields=first_name,last_name,profile_pic&access_token=${encodeURIComponent(
     env.fb.pageAccessToken(),
   )}`;
-  const res = await fetch(url);
-  if (!res.ok) return {};
-  return (await res.json()) as { first_name?: string; last_name?: string; profile_pic?: string };
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+    if (res.ok) {
+      const p = (await res.json()) as { first_name?: string; last_name?: string; profile_pic?: string };
+      if (p.first_name || p.last_name) return p;
+    } else {
+      console.error(`[facebook] ดึงโปรไฟล์ไม่สำเร็จ สถานะ ${res.status} — ลองชื่อจากรายการแชทแทน`);
+    }
+  } catch (err) {
+    console.error(`[facebook] ดึงโปรไฟล์ล้ม: ${(err as Error).name}`);
+  }
+  // ทางสำรอง: ชื่อจากผู้ร่วมแชท (ไม่มีรูป) — ใช้สิทธิ์ pages_messaging เดียวกับที่ export แชท
+  try {
+    const u = `${graphBase()}/${env.fb.pageId()}/conversations?platform=messenger&user_id=${encodeURIComponent(psid)}&fields=participants&access_token=${encodeURIComponent(env.fb.pageAccessToken())}`;
+    const res = await fetch(u, { signal: AbortSignal.timeout(4000) });
+    if (!res.ok) return {};
+    const j = (await res.json()) as { data?: { participants?: { data?: { id: string; name?: string }[] } }[] };
+    const me = j.data?.[0]?.participants?.data?.find((x) => x.id === psid);
+    if (!me?.name) return {};
+    const [first, ...rest] = me.name.trim().split(/\s+/);
+    return { first_name: first, last_name: rest.join(" ") || undefined };
+  } catch {
+    return {};
+  }
 }
 
 /** ตั้งปุ่ม "เริ่มต้นใช้งาน" + เมนูค้างของเพจ (รันครั้งเดียวตอนติดตั้ง) */

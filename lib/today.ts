@@ -37,6 +37,7 @@ export function deadlineLevel(deadline: Date | null, now: Date): DeadlineLevel {
 export interface TodayConversation {
   id: string;
   name: string;
+  avatar?: string | null;
   state: string;
   unread: boolean;
   lastUserMessageAt: string | null;
@@ -68,6 +69,7 @@ export interface TodayItem {
   why: "awaiting_human" | "customer_replied" | "new_lead" | "draft";
   conversationId: string | null;
   name: string;
+  avatar: string | null;
   state: string | null;
   unread: boolean;
   /** เวลาที่ใช้เรียง/บอก "ผ่านมากี่ชั่วโมง" — ข้อความล่าสุดของลูกค้า หรือวันที่เก็บผู้สนใจได้ */
@@ -126,6 +128,7 @@ export function buildTodayQueue(input: {
       why: c.state === "awaiting_human" ? "awaiting_human" : "customer_replied",
       conversationId: c.id,
       name: c.name,
+      avatar: c.avatar ?? null,
       state: c.state,
       unread: c.unread,
       since: c.lastUserMessageAt ?? c.lastMessageAt,
@@ -149,6 +152,7 @@ export function buildTodayQueue(input: {
       why: "new_lead",
       conversationId: l.conversation_id,
       name: l.name || c?.name || "ไม่ระบุชื่อ",
+      avatar: c?.avatar ?? null,
       state: c?.state ?? null,
       unread: c?.unread ?? false,
       since: l.created_at,
@@ -175,6 +179,7 @@ export function buildTodayQueue(input: {
       why: "draft",
       conversationId: c.id,
       name: c.name,
+      avatar: c.avatar ?? null,
       state: c.state,
       unread: c.unread,
       since: c.lastUserMessageAt,
