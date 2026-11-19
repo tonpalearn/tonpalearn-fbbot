@@ -394,3 +394,21 @@ describe("แชททดลอง 19 พ.ย. — ต้องเป็นธ�
     expect(all(out[2])).not.toContain(VOICE.businessType);
   });
 });
+
+describe("แชททดลอง 19 พ.ย. รอบ 2 — คำถามสุดท้ายไม่มีคนตอบ", () => {
+  it("รอเลือกเวลาอยู่ แล้วถาม 'ทำระบบโรงงานได้ไหม' → ตอบว่ารับทำ แล้วเสนอ 2 เวลาเดิม ไม่ปิดห้อง", async () => {
+    state.settings.meeting_slots = SLOTS;
+    const out = await chat("100 ล้านขึ้นไป", "งานในโรงงาน", "นับสต็อก", "โรงงานผลิตอาหาร", "ทำระบบโรงงานได้ไหม");
+    const last = out[4];
+    expect(last.kind).toBe("multi");
+    expect(texts(last)[0]).toBe(VOICE.canBuild);
+    expect(texts(last)[1]).toContain("สะดวก ศุกร์ 20 พ.ย. 14:00 หรือ อังคาร 24 พ.ย. 10:00");
+    expect(state.conversation.state).toBe("collecting_lead");
+  });
+  it("รอเลือกเวลา แล้วถามเรื่องอื่นที่บอตตอบไม่ได้ → จดคำถาม + เสนอเวลาเดิม", async () => {
+    state.settings.meeting_slots = SLOTS;
+    const out = await chat("100 ล้านขึ้นไป", "งานในโรงงาน", "นับสต็อก", "โรงงานผลิตอาหาร", "ใช้เวลานานไหมครับ");
+    expect(texts(out[4])[0]).toBe(VOICE.questionNoted);
+    expect(out[4].kind).toBe("multi");
+  });
+});

@@ -391,6 +391,9 @@ export async function continueQualifier(convo: Conversation, ctx: QualCtx, text:
       return multi([{ text: SCRIPT.thinkLater, replies: THINK_BUTTONS }], "qualifier:think_later");
     case "has_it":
       return reAsk(convo, ctx, d, [{ text: SCRIPT.hasIt }], "qualifier:has_it");
+    case "can_build":
+      // ตอบให้จบก่อน แล้วถามข้อเดิมต่อ (ถ้ารอเลือกเวลาอยู่ ก็เสนอ 2 เวลาเดิมอีกครั้ง)
+      return reAsk(convo, ctx, d, [{ text: VOICE.canBuild }], "qualifier:can_build");
     default:
       break;
   }
@@ -405,6 +408,15 @@ export async function continueQualifier(convo: Conversation, ctx: QualCtx, text:
     }
     case "slot": {
       const picked = d.offeredSlots.find((s) => trimmed === s || trimmed === s.slice(0, 20) || trimmed.includes(s));
+      if (!picked && looksLikeQuestion(text)) {
+        // ถามอย่างอื่นระหว่างรอเลือกเวลา ≠ ไม่สะดวก → จดคำถามไว้ให้ต้น แล้วเสนอเวลาเดิมอีกครั้ง (ไม่ปิดห้องเงียบ ๆ)
+        d.questions.push(clip(text, 200));
+        await save(convo.id, d);
+        return multi(
+          [{ text: VOICE.questionNoted }, { text: twoSlots(d.offeredSlots), replies: slotButtons(d.offeredSlots) }],
+          "qualifier:slot_question",
+        );
+      }
       if (!picked) {
         return finishQualifier(convo, ctx, d, "ลูกค้าไม่สะดวกเวลาที่เสนอ", [{ text: VOICE.slotNone }]);
       }
